@@ -4,9 +4,9 @@ module Lintus
   # The parsed config file. Its directory is the root every path is relative to.
   class Config
     DEFAULT_MAX_FILE_SIZE = 100_000
-    TOP_LEVEL_KEYS = %w[rules paths exclude max_file_size].freeze
+    KEYS = %w[rules paths exclude max_file_size].freeze
 
-    attr_reader :root, :path, :rules, :paths, :exclude, :max_file_size
+    attr_reader :root, :rules, :paths, :exclude, :max_file_size
 
     class << self
       def load(path = nil, dir: Dir.pwd)
@@ -18,24 +18,18 @@ module Lintus
         raise ConfigError, "Config file not found: #{path}" unless File.file?(path)
 
         path = File.expand_path(path)
-        new(parse(path), root: File.dirname(path), path: path)
+        new(parse(path), root: File.dirname(path))
       end
 
       # Walks up from `dir` and returns the first config file found, like git does for .git.
       def locate(dir)
-        dir = File.expand_path(dir)
-
-        loop do
+        Pathname(dir).expand_path.ascend do |ancestor|
           CONFIG_FILENAMES.each do |name|
-            candidate = File.join(dir, name)
-            return candidate if File.file?(candidate)
+            candidate = ancestor / name
+            return candidate.to_s if candidate.file?
           end
-
-          parent = File.dirname(dir)
-          return nil if parent == dir
-
-          dir = parent
         end
+        nil
       end
 
       private
@@ -47,45 +41,28 @@ module Lintus
       end
     end
 
-    def initialize(data, root: Dir.pwd, path: nil)
+    def initialize(data, root: Dir.pwd)
       raise ConfigError, "config must be a map, got #{data.class}" unless data.is_a?(Hash)
 
       data = data.transform_keys(&:to_s)
-      reject_unknown_keys(data)
+      Schema.reject_unknown_keys!(data, KEYS, context: "config")
 
       @root = File.expand_path(root)
-      @path = path
-      @paths = Array(data["paths"]).map(&:to_s)
-      @exclude = Array(data["exclude"]).map(&:to_s)
+      @paths = Schema.string_list(data["paths"])
+      @exclude = Schema.string_list(data["exclude"])
       @max_file_size = build_max_file_size(data.fetch("max_file_size", DEFAULT_MAX_FILE_SIZE))
       @rules = build_rules(data["rules"])
     end
 
-    def excluded?(path) = Glob.match_any?(exclude, path)
-
     # The rules that apply to a repository-relative path, in config order.
-    def rules_for(path)
-      return [] if excluded?(path)
-
-      rules.select { |rule| rule.applies_to?(path) }
-    end
+    def rules_for(path) = rules.select { |rule| rule.applies_to?(path) }
 
     def rule(id) = rules.find { |rule| rule.id == id.to_s }
 
     private
 
-    def reject_unknown_keys(data)
-      unknown = data.keys - TOP_LEVEL_KEYS
-      return if unknown.empty?
-
-      raise ConfigError, "unknown top-level key(s): #{unknown.join(", ")} (expected #{TOP_LEVEL_KEYS.join(", ")})"
-    end
-
     def build_max_file_size(value)
-      unless value.is_a?(Integer) && value.positive?
-        raise ConfigError,
-              "`max_file_size` must be a positive integer of bytes"
-      end
+      raise ConfigError, "`max_file_size` must be a positive integer of bytes" unless value.is_a?(Integer) && value.positive?
 
       value
     end
@@ -94,7 +71,7 @@ module Lintus
       raise ConfigError, "`rules` must be a map of rule id => attributes" unless rules.is_a?(Hash)
       raise ConfigError, "`rules` is empty: nothing to lint" if rules.empty?
 
-      rules.map { |id, attrs| Rule.new(id, attrs, default_paths: paths) }
+      rules.map { |id, attrs| Rule.new(id, attrs, default_paths: paths, default_exclude: exclude) }
     end
   end
 end

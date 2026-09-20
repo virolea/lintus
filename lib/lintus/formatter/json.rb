@@ -5,7 +5,7 @@ require "json"
 module Lintus
   class Formatter
     # Machine-readable output for other tools to consume.
-    class JSON < Formatter
+    class Json < Formatter
       def render(report)
         io.puts ::JSON.pretty_generate(
           summary: {

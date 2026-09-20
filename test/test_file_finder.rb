@@ -94,4 +94,18 @@ class TestFileFinder < Minitest::Test
       assert_raises(Lintus::Error) { Lintus::FileFinder.new(dir).explicit(["/etc/hostname"]) }
     end
   end
+
+  def test_explicit_directories_honour_gitignore_inside_a_repository
+    with_git_repo do |dir|
+      write("app/a.rb")
+      write("app/ignored.rb")
+      write(".gitignore", "ignored.rb\n")
+      commit_all
+      write("app/untracked.rb")
+
+      files = Lintus::FileFinder.new(dir).explicit(["app", "."], from: dir)
+
+      assert_equal %w[.gitignore app/a.rb app/untracked.rb], files.map(&:path)
+    end
+  end
 end

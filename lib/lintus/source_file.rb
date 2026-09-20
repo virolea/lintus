@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Lintus
-  # A file to lint: a repository-relative path and a lazy reader for its content.
+  # A file to lint: a repository-relative path and a reader for its content.
   # The reader is what lets `--staged` lint the index rather than the working tree.
   class SourceFile
     attr_reader :path
@@ -11,19 +11,11 @@ module Lintus
       @reader = reader
     end
 
+    # Reads the content afresh on every call so a run holds only the files in flight.
     def content
-      @content ||= @reader.call.dup.force_encoding(Encoding::UTF_8)
+      (+@reader.call).force_encoding(Encoding::UTF_8)
+    rescue SystemCallError, Git::CommandError => e
+      raise ReadError, "could not read #{path}: #{e.message}"
     end
-
-    def size = content.bytesize
-
-    def binary? = content.include?("\0") || !content.valid_encoding?
-
-    def ==(other) = other.is_a?(SourceFile) && other.path == path
-    alias eql? ==
-
-    def hash = path.hash
-
-    def to_s = path
   end
 end

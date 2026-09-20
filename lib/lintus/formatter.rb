@@ -1,17 +1,16 @@
 # frozen_string_literal: true
 
 module Lintus
-  # Base class: subclasses render a Report to an IO.
+  # Renders a Report to an IO. Line-oriented subclasses override the three
+  # `*_line` hooks; anything else overrides `render`.
   class Formatter
-    FORMATS = { "text" => "Text", "github" => "GitHub", "json" => "JSON" }.freeze
+    NAMES = %w[text github json].freeze
 
     def self.for(name)
-      const_name = FORMATS[name.to_s] or raise Error,
-                                               "unknown format #{name.inspect} (expected one of #{FORMATS.keys.join(", ")})"
-      const_get(const_name)
-    end
+      raise Error, "unknown format #{name.inspect} (expected one of #{NAMES.join(", ")})" unless NAMES.include?(name.to_s)
 
-    def self.names = FORMATS.keys
+      const_get(name.to_s.capitalize)
+    end
 
     attr_reader :io
 
@@ -20,10 +19,20 @@ module Lintus
     end
 
     def render(report)
-      raise NotImplementedError
+      report.sorted_offenses.each { |offense| io.puts offense_line(offense) }
+      report.skipped.each { |skipped| io.puts skipped_line(skipped) }
+      report.failures.each { |failure| io.puts failure_line(failure) }
+      before_summary(report)
+      io.puts summary(report)
     end
 
     private
+
+    def offense_line(offense) = raise(NotImplementedError)
+    def skipped_line(skipped) = raise(NotImplementedError)
+    def failure_line(failure) = raise(NotImplementedError)
+
+    def before_summary(report); end
 
     def summary(report)
       parts = ["#{pluralize(report.checked.size, "file")} inspected",

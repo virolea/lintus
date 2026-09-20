@@ -11,36 +11,22 @@ module Lintus
       @git = git
     end
 
-    # Every file in the tree: git's view when inside a repository, else a glob.
-    def all
-      paths = git.repository? ? git.tracked_files + git.untracked_files : glob_everything
-      sources(paths)
-    end
+    # Every file in the tree: git's view when inside a repository, else a walk.
+    def all = sources(files_under(root))
 
     def changed_since(ref)
       require_repository!
-      sources(git.changed_files_since(ref) + git.untracked_files)
+      sources(git.changed_files_since(ref))
     end
 
     def staged
       require_repository!
-      git.staged_files.sort.uniq.map { |path| SourceFile.new(path) { git.staged_content(path) } }
+      sources(git.staged_files, existing_only: false) { |path| git.staged_content(path) }
     end
 
     # Paths given on the command line, resolved against the current directory.
     def explicit(paths, from: Dir.pwd)
-      expanded = paths.flat_map do |path|
-        absolute = File.expand_path(path, from)
-        if File.directory?(absolute)
-          Dir.glob("**/*", File::FNM_DOTMATCH, base: absolute).map do |f|
-            File.join(absolute, f)
-          end
-        else
-          [absolute]
-        end
-      end
-
-      sources(expanded.select { |absolute| File.file?(absolute) }.map { |absolute| relativize(absolute) })
+      sources(paths.flat_map { |path| files_under(File.expand_path(path, from)) })
     end
 
     private
@@ -49,16 +35,25 @@ module Lintus
       raise Error, "#{root} is not a git repository: --diff and --staged need git" unless git.repository?
     end
 
-    def glob_everything
-      Dir.glob("**/*", File::FNM_DOTMATCH, base: root).reject { |path| path.start_with?(".git/") || path == ".git" }
+    # Repository-relative paths of the files at or beneath an absolute path.
+    def files_under(absolute)
+      return [relativize(absolute)] unless File.directory?(absolute)
+
+      relative = relativize(absolute)
+      return git.files(relative) if git.repository?
+
+      Dir.glob("**/*", File::FNM_DOTMATCH, base: absolute)
+         .reject { |path| path == ".git" || path.start_with?(".git/") }
+         .map { |path| relative == "." ? path : File.join(relative, path) }
     end
 
-    def sources(paths)
-      paths.sort.uniq.filter_map do |path|
-        absolute = File.join(root, path)
-        next unless File.file?(absolute)
+    def sources(paths, existing_only: true, &reader)
+      reader ||= ->(path) { File.binread(File.join(root, path)) }
 
-        SourceFile.new(path) { File.binread(absolute) }
+      paths.sort.uniq.filter_map do |path|
+        next if existing_only && !File.file?(File.join(root, path))
+
+        SourceFile.new(path) { reader.call(path) }
       end
     end
 

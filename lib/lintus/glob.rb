@@ -10,17 +10,20 @@ module Lintus
   module Glob
     FLAGS = File::FNM_PATHNAME | File::FNM_EXTGLOB | File::FNM_DOTMATCH
 
+    # Every pattern is expanded once, however many paths it is matched against.
+    EXPANSIONS = Hash.new { |cache, pattern| cache[pattern] = expand(pattern) }
+
     module_function
 
     def match?(pattern, path)
-      expansions(pattern).any? { |expanded| File.fnmatch?(expanded, path, FLAGS) }
+      EXPANSIONS[pattern].any? { |expanded| File.fnmatch?(expanded, path, FLAGS) }
     end
 
     def match_any?(patterns, path)
       patterns.any? { |pattern| match?(pattern, path) }
     end
 
-    def expansions(pattern)
+    def expand(pattern)
       pattern = pattern.to_s.delete_prefix("./").delete_suffix("/")
 
       if pattern.end_with?("**")

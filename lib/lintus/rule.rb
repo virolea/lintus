@@ -8,12 +8,13 @@ module Lintus
   # `offense_when` (true by default, so questions are phrased to describe the
   # offense: "Does this file call sleep?").
   class Rule
+    KEYS = %w[question description criteria threshold paths exclude severity offense_when].freeze
     SEVERITIES = %w[error warning].freeze
     ID_FORMAT = /\A[a-z][a-z0-9_]*\z/
 
     attr_reader :id, :description, :question, :criteria, :threshold, :paths, :exclude, :severity, :offense_when
 
-    def initialize(id, attrs, default_paths: [])
+    def initialize(id, attrs, default_paths: [], default_exclude: [])
       @id = validate_id(id)
       attrs = normalize(attrs)
 
@@ -21,8 +22,8 @@ module Lintus
       @description = attrs.fetch("description", @question).to_s
       @criteria = build_criteria(attrs["criteria"])
       @threshold = build_threshold(attrs["threshold"])
-      @paths = Array(attrs.fetch("paths", default_paths)).map(&:to_s)
-      @exclude = Array(attrs["exclude"]).map(&:to_s)
+      @paths = Schema.string_list(attrs.fetch("paths", default_paths))
+      @exclude = default_exclude + Schema.string_list(attrs["exclude"])
       @severity = build_severity(attrs.fetch("severity", "error"))
       @offense_when = build_offense_when(attrs.fetch("offense_when", true))
     end
@@ -57,7 +58,9 @@ module Lintus
     def normalize(attrs)
       raise ConfigError, "rule #{id}: expected a map of attributes, got #{attrs.inspect}" unless attrs.is_a?(Hash)
 
-      attrs.transform_keys(&:to_s)
+      attrs = attrs.transform_keys(&:to_s)
+      Schema.reject_unknown_keys!(attrs, KEYS, context: "rule #{id}")
+      attrs
     end
 
     def fetch_string(attrs, key)

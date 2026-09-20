@@ -8,12 +8,11 @@ class TestFormatters < Minitest::Test
   def setup
     config = build_config
     @report = Lintus::Report.new
-    @report.record_checked("app/jobs/a_job.rb", rules: config.rules, model: "jev-1")
-    @report.record_checked("lib/ok.rb", rules: config.rules, model: "jev-1")
-    @report.record_offenses([
-                              Lintus::Offense.new(path: "app/jobs/a_job.rb", rule: config.rule(:no_sleep), noul: 0.912),
-                              Lintus::Offense.new(path: "app/jobs/a_job.rb", rule: config.rule(:documented), noul: 0.3)
-                            ])
+    @report.record_checked("lib/ok.rb", [])
+    @report.record_checked("app/jobs/a_job.rb", [
+                             Lintus::Offense.new(path: "app/jobs/a_job.rb", rule: config.rule(:no_sleep), noul: 0.912),
+                             Lintus::Offense.new(path: "app/jobs/a_job.rb", rule: config.rule(:documented), noul: 0.3)
+                           ])
     @report.record_skipped("lib/blob.rb", "binary file")
     @report.record_failure("lib/bad.rb", Jev::APIError.new(500, "boom"))
   end
@@ -48,9 +47,9 @@ class TestFormatters < Minitest::Test
   def test_github_escapes_newlines_and_percent_in_messages
     config = Lintus::Config.new({ "rules" => { "r" => { "question" => "q", "description" => "100%\nsure" } } })
     report = Lintus::Report.new
-    report.record_offenses([Lintus::Offense.new(path: "a.rb", rule: config.rule(:r), noul: 1.0)])
+    report.record_checked("a.rb", [Lintus::Offense.new(path: "a.rb", rule: config.rule(:r), noul: 1.0)])
 
-    assert_equal "::error file=a.rb,title=lintus%3A r::100%25%0Asure\n0 files inspected, 1 offense detected\n",
+    assert_equal "::error file=a.rb,title=lintus%3A r::100%25%0Asure\n1 file inspected, 1 offense detected\n",
                  render("github", report)
   end
 

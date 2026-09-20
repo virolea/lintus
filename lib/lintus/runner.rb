@@ -8,12 +8,11 @@ module Lintus
 
     attr_reader :config, :jobs, :retries
 
-    def initialize(config, jobs: 4, retries: 3, sleeper: Kernel.method(:sleep), progress: nil)
+    def initialize(config, jobs: 4, retries: 3, sleeper: Kernel.method(:sleep))
       @config = config
       @jobs = [jobs.to_i, 1].max
       @retries = retries
       @sleeper = sleeper
-      @progress = progress
     end
 
     # Pairs every file with the rules that apply to it, dropping files no rule covers.
@@ -24,13 +23,14 @@ module Lintus
       end
     end
 
-    def run(files)
+    # Checks the [file, rules] pairs from #plan concurrently.
+    def run(tasks)
       report = Report.new
       queue = Queue.new
-      plan(files).each { |task| queue << task }
+      tasks.each { |task| queue << task }
       queue.close
 
-      workers = Array.new([jobs, queue.size].min) do
+      workers = Array.new([jobs, tasks.size].min) do
         Thread.new do
           while (task = queue.pop)
             check(*task, report)
@@ -43,36 +43,34 @@ module Lintus
     end
 
     def check(file, rules, report)
-      if (reason = skip_reason(file))
+      content = file.content
+      if (reason = skip_reason(content))
         report.record_skipped(file.path, reason)
         return
       end
 
-      response = with_retries { perform(file, rules) }
-      report.record_checked(file.path, rules: rules, model: response.model)
-      report.record_offenses(offenses_for(file, rules, response.answers))
-    rescue Jev::Error, Git::CommandError, SystemCallError => e
+      response = with_retries { perform(file, rules, content) }
+      report.record_checked(file.path, offenses_for(file, rules, response.answers))
+    rescue Jev::Error, Error => e
       report.record_failure(file.path, e)
-    ensure
-      @progress&.call(file)
     end
 
     private
 
-    def skip_reason(file)
-      return "binary file" if file.binary?
-      return "larger than max_file_size (#{file.size} > #{config.max_file_size} bytes)" if file.size > config.max_file_size
+    def skip_reason(content)
+      return "binary file" if content.include?("\0") || !content.valid_encoding?
+      if content.bytesize > config.max_file_size
+        return "larger than max_file_size (#{content.bytesize} > #{config.max_file_size} bytes)"
+      end
 
       nil
     end
 
-    def perform(file, rules)
-      Jev::Query.new(state_for(file)).perform do |query|
+    def perform(file, rules, content)
+      Jev::Query.new("File: #{file.path}\n\n#{content}").perform do |query|
         rules.each { |rule| rule.add_to(query) }
       end
     end
-
-    def state_for(file) = "File: #{file.path}\n\n#{file.content}"
 
     def offenses_for(file, rules, answers)
       rules.filter_map do |rule|

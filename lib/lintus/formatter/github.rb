@@ -4,22 +4,20 @@ module Lintus
   class Formatter
     # GitHub Actions workflow commands: each offense becomes an annotation on
     # its file in the pull request, then a plain summary for the job log.
-    class GitHub < Formatter
-      def render(report)
-        report.sorted_offenses.each do |offense|
-          io.puts command(offense.severity, offense.message, file: offense.path, title: "lintus: #{offense.rule.id}")
-        end
-        report.skipped.each do |skipped|
-          io.puts command("notice", "Skipped: #{skipped.reason}", file: skipped.path, title: "lintus")
-        end
-        report.failures.each do |failure|
-          io.puts command("error", failure.error.message, file: failure.path, title: "lintus: request failed")
-        end
+    class Github < Formatter
+      private
 
-        io.puts summary(report)
+      def offense_line(offense)
+        command(offense.severity, offense.message, file: offense.path, title: "lintus: #{offense.rule.id}")
       end
 
-      private
+      def skipped_line(skipped)
+        command("notice", "Skipped: #{skipped.reason}", file: skipped.path, title: "lintus")
+      end
+
+      def failure_line(failure)
+        command("error", failure.error.message, file: failure.path, title: "lintus: request failed")
+      end
 
       def command(level, message, **properties)
         props = properties.map { |key, value| "#{key}=#{escape_property(value)}" }.join(",")

@@ -3,7 +3,6 @@
 module Lintus
   # Everything a run produced: what was checked, what was flagged, what was skipped, what broke.
   class Report
-    Checked = Struct.new(:path, :rules, :model, keyword_init: true)
     Skipped = Struct.new(:path, :reason, keyword_init: true)
     Failure = Struct.new(:path, :error, keyword_init: true)
 
@@ -17,12 +16,11 @@ module Lintus
       @mutex = Mutex.new
     end
 
-    def record_checked(path, rules:, model:)
-      synchronize { checked << Checked.new(path: path, rules: rules, model: model) }
-    end
-
-    def record_offenses(offenses)
-      synchronize { self.offenses.concat(offenses) }
+    def record_checked(path, offenses)
+      synchronize do
+        checked << path
+        self.offenses.concat(offenses)
+      end
     end
 
     def record_skipped(path, reason)
@@ -38,20 +36,16 @@ module Lintus
 
     def sorted_offenses = offenses.sort_by { |offense| [offense.path, offense.rule.id] }
 
-    def failed?(fail_on: "error")
-      return true if failures.any?
-
-      case fail_on.to_s
-      when "warning" then offenses.any?
-      when "never" then false
-      else errors.any?
-      end
-    end
-
+    # 2 when a file could not be checked, 1 when offenses reach `fail_on`, else 0.
     def exit_status(fail_on: "error")
       return 2 if failures.any?
 
-      failed?(fail_on: fail_on) ? 1 : 0
+      failing = case fail_on.to_s
+                when "warning" then offenses
+                when "never" then []
+                else errors
+                end
+      failing.any? ? 1 : 0
     end
 
     private

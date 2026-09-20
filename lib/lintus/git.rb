@@ -17,17 +17,16 @@ module Lintus
 
     def repository? = run("rev-parse", "--is-inside-work-tree", allow_failure: true) == "true"
 
-    def tracked_files = lines("ls-files", "-z", "--cached", "--exclude-standard")
-
-    def untracked_files = lines("ls-files", "-z", "--others", "--exclude-standard")
+    # Tracked and untracked files, honouring .gitignore, optionally under the given directories.
+    def files(*pathspecs) = lines("ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", *pathspecs)
 
     def staged_files = lines("diff", "-z", "--cached", "--name-only", CHANGE_FILTER)
 
-    # Files that differ between the working tree and the merge base of `ref` and HEAD.
-    # With `ref` at HEAD this is "what I have not committed yet".
+    # Files that differ between the working tree and the merge base of `ref` and HEAD,
+    # plus untracked files. With `ref` at HEAD this is "what I have not committed yet".
     def changed_files_since(ref)
       base = run("merge-base", ref, "HEAD", allow_failure: true) || ref
-      lines("diff", "-z", "--name-only", CHANGE_FILTER, base)
+      lines("diff", "-z", "--name-only", CHANGE_FILTER, base) + lines("ls-files", "-z", "--others", "--exclude-standard")
     end
 
     def staged_content(path) = run("show", ":#{path}", chomp: false)

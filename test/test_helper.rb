@@ -11,7 +11,7 @@ require "stringio"
 Jev.api_key = "test-key"
 
 module LintusTestHelpers
-  API_URL = "https://api.typesafe.ai/v1/systemone"
+  API_URL = Jev::Client::API_URL
 
   RULES = {
     "no_sleep" => {

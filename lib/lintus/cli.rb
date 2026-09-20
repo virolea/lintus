@@ -12,8 +12,10 @@ module Lintus
       With no FILE, lints every file in the tree. FILE may be a file or a directory.
     USAGE
 
+    # `command` is what to do; `selection` is which files, with `ref` for --diff
+    # and `files` for paths given on the command line.
     Options = Struct.new(
-      :config, :mode, :ref, :format, :jobs, :api_key, :list, :fail_on, :quiet,
+      :command, :selection, :ref, :files, :config, :format, :jobs, :api_key, :list, :fail_on,
       keyword_init: true
     )
 
@@ -27,21 +29,13 @@ module Lintus
     end
 
     def run(argv)
-      options = parse(argv.dup)
-      return init if options == :init
-      return 0 if options == :done
+      options = parse(argv)
 
-      config = Config.load(options.config, dir: @dir)
-      files = find_files(config, options)
-      runner = Runner.new(config, jobs: options.jobs)
-      tasks = runner.plan(files)
-
-      return list(tasks) if options.list
-
-      configure_api_key!(options)
-      report = runner.run(tasks.map(&:first))
-      Formatter.for(options.format).new(stdout).render(report)
-      report.exit_status(fail_on: options.fail_on)
+      case options.command
+      when :exit then 0
+      when :init then init
+      else lint(options)
+      end
     rescue Error, Jev::Error, OptionParser::ParseError => e
       stderr.puts "lintus: #{e.message}"
       2
@@ -49,48 +43,57 @@ module Lintus
 
     private
 
+    def lint(options)
+      config = Config.load(options.config, dir: @dir)
+      runner = Runner.new(config, jobs: options.jobs)
+      tasks = runner.plan(find_files(config, options))
+      return list(tasks) if options.list
+
+      configure_api_key!(options)
+      report = runner.run(tasks)
+      Formatter.for(options.format).new(stdout).render(report)
+      report.exit_status(fail_on: options.fail_on)
+    end
+
     def parse(argv)
       options = default_options
-      parser = build_parser(options)
-      argv = parser.parse(argv)
-      return :done if options.mode == :done
+      positional = build_parser(options).parse(argv)
+      return options if options.command == :exit
 
-      if argv.first == "init"
-        return :init if argv.size == 1
+      if positional.first == "init"
+        raise OptionParser::InvalidArgument, "init takes no arguments" if positional.size > 1
 
-        raise OptionParser::InvalidArgument, "init takes no arguments"
-      end
-
-      if argv.any?
-        if options.mode != :all
+        options.command = :init
+      elsif positional.any?
+        if options.selection != :all
           raise OptionParser::InvalidArgument,
                 "FILE arguments cannot be combined with --diff or --staged"
         end
 
-        options.mode = :explicit
-        options.ref = argv
+        options.selection = :explicit
+        options.files = positional
       end
       options
     end
 
     def default_options
       Options.new(
-        mode: :all, format: @env["GITHUB_ACTIONS"] == "true" ? "github" : "text", jobs: 4,
-        api_key: @env["JEV_API_KEY"], list: false, fail_on: "error"
+        command: :lint, selection: :all, format: @env["GITHUB_ACTIONS"] == "true" ? "github" : "text",
+        jobs: 4, api_key: @env["JEV_API_KEY"], list: false, fail_on: "error"
       )
     end
 
-    def build_parser(options) # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
+    def build_parser(options) # rubocop:disable Metrics/MethodLength
       OptionParser.new do |parser| # rubocop:disable Metrics/BlockLength
         parser.banner = USAGE
         parser.separator ""
         parser.separator "Which files:"
         parser.on("-d", "--diff [REF]", "Only files changed since REF (default HEAD: uncommitted changes)") do |ref|
-          options.mode = :diff
+          options.selection = :diff
           options.ref = ref || "HEAD"
         end
         parser.on("-s", "--staged", "Only staged files, reading their staged content (for pre-commit hooks)") do
-          options.mode = :staged
+          options.selection = :staged
         end
         parser.separator ""
         parser.separator "How to run:"
@@ -98,16 +101,15 @@ module Lintus
                   "Config file (default: nearest #{CONFIG_FILENAMES.first} upwards from the current directory)") do |path|
           options.config = path
         end
-        parser.on("-f", "--format FORMAT", Formatter.names,
-                  "Output format: #{Formatter.names.join(", ")} (default: text, or github under GitHub Actions)") do |format|
+        parser.on("-f", "--format FORMAT", Formatter::NAMES,
+                  "Output format: #{Formatter::NAMES.join(", ")} (default: text, or github under GitHub Actions)") do |format|
           options.format = format
         end
         parser.on("-j", "--jobs N", Integer, "Concurrent requests to the Jev API (default 4)") do |jobs|
           options.jobs = jobs
         end
         parser.on("--api-key KEY", "Jev API key (default: $JEV_API_KEY)") { |key| options.api_key = key }
-        parser.on("--fail-on LEVEL", %w[error warning never],
-                  "Exit non-zero on: error (default), warning, never") do |level|
+        parser.on("--fail-on LEVEL", %w[error warning never], "Exit non-zero on: error (default), warning, never") do |level|
           options.fail_on = level
         end
         parser.on("-l", "--list", "List the files and rules that would be checked, without calling the API") do
@@ -116,11 +118,11 @@ module Lintus
         parser.separator ""
         parser.on("-v", "--version", "Print the version") do
           stdout.puts "lintus #{VERSION}"
-          options.mode = :done
+          options.command = :exit
         end
         parser.on("-h", "--help", "Print this help") do
           stdout.puts parser
-          options.mode = :done
+          options.command = :exit
         end
       end
     end
@@ -128,10 +130,10 @@ module Lintus
     def find_files(config, options)
       finder = FileFinder.new(config.root)
 
-      case options.mode
+      case options.selection
       when :diff then finder.changed_since(options.ref)
       when :staged then finder.staged
-      when :explicit then finder.explicit(options.ref, from: @dir)
+      when :explicit then finder.explicit(options.files, from: @dir)
       else finder.all
       end
     end

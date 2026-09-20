@@ -41,7 +41,6 @@ class TestConfig < Minitest::Test
       config = Lintus::Config.load(path, dir: "/")
 
       assert_equal File.expand_path(dir), config.root
-      assert_equal File.expand_path(path), config.path
     end
   end
 
@@ -65,6 +64,9 @@ class TestConfig < Minitest::Test
     assert_raises(Lintus::ConfigError) { build_config("max_file_size" => "big") }
 
     error = assert_raises(Lintus::ConfigError) { build_config("rule" => {}) }
-    assert_includes error.message, "unknown top-level key(s): rule"
+    assert_includes error.message, "config: unknown key(s) rule"
+
+    error = assert_raises(Lintus::ConfigError) { build_config("rules" => { "r" => { "question" => "q", "severty" => "x" } }) }
+    assert_includes error.message, "rule r: unknown key(s) severty"
   end
 end
