@@ -1,0 +1,18 @@
+# Hook definition for https://pre-commit.com
+#
+#   repos:
+#     - repo: https://github.com/virolea/lintus
+#       rev: v0.1.0
+#       hooks:
+#         - id: lintus
+#
+# pre-commit passes the staged file names as arguments, so only the files in
+# the commit are sent to the model. JEV_API_KEY must be set in the environment.
+- id: lintus
+  name: lintus
+  description: Lint staged files against the plain-language rules in .lintus.yml, using the Jev model.
+  entry: lintus
+  language: ruby
+  pass_filenames: true
+  require_serial: true
+  additional_dependencies: []

@@ -1,0 +1,29 @@
+# Lintus linting itself. Uses the action defined in this repository, so it also
+# serves as a smoke test of action.yml. Skipped on forks without the secret.
+name: Lintus
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lintus:
+    runs-on: ubuntu-latest
+    env:
+      JEV_API_KEY: ${{ secrets.JEV_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Ruby
+        if: env.JEV_API_KEY != ''
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - name: Run lintus from this checkout
+        if: env.JEV_API_KEY != ''
+        run: bundle exec exe/lintus --format github --diff "origin/${{ github.base_ref }}"

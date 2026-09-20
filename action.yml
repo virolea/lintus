@@ -1,0 +1,69 @@
+name: Lintus
+description: Lint a repository against the plain-language rules in its .lintus.yml, using the Jev model.
+author: Vincent Rolea
+branding:
+  icon: check-circle
+  color: purple
+
+inputs:
+  jev-api-key:
+    description: API key for the Typesafe Jev model. Store it as a repository secret.
+    required: true
+  base:
+    description: >-
+      Git ref to diff against; only files changed since it are linted. Defaults to the
+      pull request base branch on pull_request events, and to linting every file otherwise.
+      Pass "none" to always lint every file. Requires `fetch-depth: 0` on actions/checkout.
+    required: false
+    default: ""
+  args:
+    description: Extra arguments for the lintus command, for example "--fail-on warning" or "--jobs 8".
+    required: false
+    default: ""
+  version:
+    description: Version of the lintus gem to install. Defaults to the latest release.
+    required: false
+    default: ""
+  ruby-version:
+    description: Ruby version to set up when the workflow has not done so already.
+    required: false
+    default: "3.3"
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ inputs.ruby-version }}
+
+    - name: Install lintus
+      shell: bash
+      env:
+        LINTUS_VERSION: ${{ inputs.version }}
+      run: |
+        if [ -n "$LINTUS_VERSION" ]; then
+          gem install lintus --version "$LINTUS_VERSION"
+        else
+          gem install lintus
+        fi
+
+    - name: Run lintus
+      shell: bash
+      env:
+        JEV_API_KEY: ${{ inputs.jev-api-key }}
+        LINTUS_BASE: ${{ inputs.base }}
+        LINTUS_ARGS: ${{ inputs.args }}
+        PR_BASE_REF: ${{ github.base_ref }}
+      run: |
+        base="$LINTUS_BASE"
+        if [ -z "$base" ] && [ -n "$PR_BASE_REF" ]; then
+          base="origin/$PR_BASE_REF"
+        fi
+
+        if [ -n "$base" ] && [ "$base" != "none" ]; then
+          git fetch --no-tags origin "${base#origin/}" >/dev/null 2>&1 || true
+          lintus --format github --diff "$base" $LINTUS_ARGS
+        else
+          lintus --format github $LINTUS_ARGS
+        fi

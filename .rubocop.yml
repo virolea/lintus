@@ -1,0 +1,36 @@
+AllCops:
+  TargetRubyVersion: 3.2
+  NewCops: enable
+  Exclude:
+    - "vendor/**/*"
+    - "tmp/**/*"
+
+Style/StringLiterals:
+  EnforcedStyle: double_quotes
+
+Style/StringLiteralsInInterpolation:
+  EnforcedStyle: double_quotes
+
+Style/Documentation:
+  Enabled: false
+
+Metrics/BlockLength:
+  Exclude:
+    - "test/**/*"
+    - "lintus.gemspec"
+
+Metrics/ClassLength:
+  Exclude:
+    - "test/**/*"
+
+Metrics/AbcSize:
+  Max: 40
+
+Metrics/MethodLength:
+  Max: 25
+
+Metrics/ClassLength:
+  Max: 150
+
+Layout/LineLength:
+  Max: 130

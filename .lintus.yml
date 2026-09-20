@@ -1,0 +1,32 @@
+# Lintus lints itself with these rules. See README.md for the format.
+
+paths:
+  - "lib/**/*.rb"
+  - "exe/*"
+
+exclude:
+  - "lib/lintus/version.rb"
+
+rules:
+  no_debugging_leftovers:
+    description: Debugging statements must not be committed.
+    question: Does this file contain leftover debugging code, such as binding.irb, debugger, or a puts/p/pp used to inspect a value?
+    criteria:
+      "true": A debugger breakpoint or a throwaway print statement is present.
+      "false": Any output is deliberate program behaviour, or there is none.
+
+  errors_are_actionable:
+    description: Raised error messages must tell the user what was wrong and what to do about it.
+    question: Does this file raise an error whose message would leave a user unsure of what went wrong or how to fix it?
+    criteria:
+      "true": At least one raised message is vague, such as "invalid" or "failed", with no detail.
+      "false": Every raised message names the problem, or no errors are raised.
+    severity: warning
+
+  classes_are_documented:
+    description: Each class and module should open with a comment describing its responsibility.
+    question: Does every top-level class or module in this file have a comment describing what it is for?
+    offense_when: false
+    severity: warning
+    exclude:
+      - "exe/*"
