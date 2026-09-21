@@ -21,8 +21,8 @@ class TestFormatters < Minitest::Test
     output = render("text")
 
     assert_equal <<~TEXT, output
-      app/jobs/a_job.rb: [documented] Classes carry a comment. (warning, noul 0.3)
-      app/jobs/a_job.rb: [no_sleep] Jobs must not sleep. (error, noul 0.91)
+      app/jobs/a_job.rb: [documented] Classes carry a comment. (noul 0.3)
+      app/jobs/a_job.rb: [no_sleep] Jobs must not sleep. (noul 0.91)
       lib/blob.rb: skipped, binary file
       lib/bad.rb: failed, Jev API error 500: boom
 
@@ -37,7 +37,7 @@ class TestFormatters < Minitest::Test
   def test_github_emits_workflow_commands
     lines = render("github").lines(chomp: true)
 
-    assert_equal "::warning file=app/jobs/a_job.rb,title=lintus%3A documented::Classes carry a comment.", lines[0]
+    assert_equal "::error file=app/jobs/a_job.rb,title=lintus%3A documented::Classes carry a comment.", lines[0]
     assert_equal "::error file=app/jobs/a_job.rb,title=lintus%3A no_sleep::Jobs must not sleep.", lines[1]
     assert_equal "::notice file=lib/blob.rb,title=lintus::Skipped: binary file", lines[2]
     assert_equal "::error file=lib/bad.rb,title=lintus%3A request failed::Jev API error 500: boom", lines[3]
@@ -56,9 +56,8 @@ class TestFormatters < Minitest::Test
   def test_json
     data = JSON.parse(render("json"))
 
-    summary = { "files_inspected" => 2, "offenses" => 2, "errors" => 1, "warnings" => 1, "skipped" => 1, "failures" => 1 }
-    offense = { "path" => "app/jobs/a_job.rb", "rule" => "no_sleep", "severity" => "error",
-                "message" => "Jobs must not sleep.", "noul" => 0.912 }
+    summary = { "files_inspected" => 2, "offenses" => 2, "skipped" => 1, "failures" => 1 }
+    offense = { "path" => "app/jobs/a_job.rb", "rule" => "no_sleep", "message" => "Jobs must not sleep.", "noul" => 0.912 }
 
     assert_equal summary, data["summary"]
     assert_equal offense, data["offenses"].last

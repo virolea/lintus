@@ -11,8 +11,6 @@ module Lintus
           summary: {
             files_inspected: report.checked.size,
             offenses: report.offenses.size,
-            errors: report.errors.size,
-            warnings: report.warnings.size,
             skipped: report.skipped.size,
             failures: report.failures.size
           },

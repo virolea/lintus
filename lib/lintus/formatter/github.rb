@@ -8,7 +8,7 @@ module Lintus
       private
 
       def offense_line(offense)
-        command(offense.severity, offense.message, file: offense.path, title: "lintus: #{offense.rule.id}")
+        command("error", offense.message, file: offense.path, title: "lintus: #{offense.rule.id}")
       end
 
       def skipped_line(skipped)

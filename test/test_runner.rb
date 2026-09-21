@@ -30,8 +30,7 @@ class TestRunner < Minitest::Test
     end
 
     assert_equal ["app/jobs/a_job.rb"], report.checked
-    assert_equal([["no_sleep", 0.9, "error"], ["documented", 0.2, "warning"]],
-                 report.offenses.map { |o| [o.rule.id, o.noul, o.severity] })
+    assert_equal([["no_sleep", 0.9], ["documented", 0.2]], report.offenses.map { |o| [o.rule.id, o.noul] })
   end
 
   def test_thresholds_and_offense_when_are_honoured
@@ -109,6 +108,16 @@ class TestRunner < Minitest::Test
 
     assert_equal 6, report.checked.size
     assert_operator Array.new(threads.size) { threads.pop }.uniq.size, :>, 1
+  end
+
+  def test_reports_progress_after_each_file
+    stub_jev({ "documented" => noul(0.1) })
+    seen = []
+    runner = Lintus::Runner.new(@config, jobs: 2)
+
+    runner.run(runner.plan(Array.new(4) { |i| source("lib/f#{i}.rb") })) { |done| seen << done }
+
+    assert_equal [1, 2, 3, 4], seen
   end
 
   def test_unreadable_files_are_recorded_as_failures

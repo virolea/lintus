@@ -15,7 +15,6 @@ class TestCLI < Minitest::Test
       documented:
         question: Is every class documented?
         offense_when: false
-        severity: warning
   YAML
 
   def test_init_writes_a_loadable_config_and_refuses_to_overwrite
@@ -71,12 +70,12 @@ class TestCLI < Minitest::Test
 
       assert_equal 1, run_cli([], dir: dir)
       assert_equal <<~TEXT, @stdout.string
-        app/jobs/a_job.rb: [no_sleep] Jobs must not sleep. (error, noul 0.95)
+        app/jobs/a_job.rb: [no_sleep] Jobs must not sleep. (noul 0.95)
 
         1 file inspected, 1 offense detected
       TEXT
+      assert_equal "Checking 1 file...\n", @stderr.string
 
-      assert_equal 0, run_cli(%w[--fail-on never], dir: dir)
       assert_equal 1, run_cli(%w[--format json --api-key from-flag], dir: dir, env: {})
       assert_equal 1, JSON.parse(@stdout.string)["summary"]["offenses"]
     end
@@ -130,7 +129,7 @@ class TestCLI < Minitest::Test
 
       run_cli([], dir: dir, env: { "JEV_API_KEY" => "k", "GITHUB_ACTIONS" => "true" })
 
-      assert_includes @stdout.string, "::warning file=lib/b.rb,title=lintus%3A documented::Is every class documented?"
+      assert_includes @stdout.string, "::error file=lib/b.rb,title=lintus%3A documented::Is every class documented?"
     end
   end
 

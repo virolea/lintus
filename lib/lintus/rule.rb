@@ -8,11 +8,10 @@ module Lintus
   # `offense_when` (true by default, so questions are phrased to describe the
   # offense: "Does this file call sleep?").
   class Rule
-    KEYS = %w[question description criteria threshold paths exclude severity offense_when].freeze
-    SEVERITIES = %w[error warning].freeze
+    KEYS = %w[question description criteria threshold paths exclude offense_when].freeze
     ID_FORMAT = /\A[a-z][a-z0-9_]*\z/
 
-    attr_reader :id, :description, :question, :criteria, :threshold, :paths, :exclude, :severity, :offense_when
+    attr_reader :id, :description, :question, :criteria, :threshold, :paths, :exclude, :offense_when
 
     def initialize(id, attrs, default_paths: [], default_exclude: [])
       @id = validate_id(id)
@@ -24,7 +23,6 @@ module Lintus
       @threshold = build_threshold(attrs["threshold"])
       @paths = Schema.string_list(attrs.fetch("paths", default_paths))
       @exclude = default_exclude + Schema.string_list(attrs["exclude"])
-      @severity = build_severity(attrs.fetch("severity", "error"))
       @offense_when = build_offense_when(attrs.fetch("offense_when", true))
     end
 
@@ -40,8 +38,6 @@ module Lintus
     end
 
     def offense?(answer) = answer.result == offense_when
-
-    def error? = severity == "error"
 
     private
 
@@ -84,16 +80,6 @@ module Lintus
       raise ConfigError, "rule #{id}: `threshold` must be a number between 0 and 1" unless valid
 
       threshold.to_f
-    end
-
-    def build_severity(severity)
-      severity = severity.to_s
-      unless SEVERITIES.include?(severity)
-        raise ConfigError,
-              "rule #{id}: `severity` must be one of #{SEVERITIES.join(", ")}"
-      end
-
-      severity
     end
 
     def build_offense_when(value)

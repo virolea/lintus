@@ -31,21 +31,13 @@ module Lintus
       synchronize { failures << Failure.new(path: path, error: error) }
     end
 
-    def errors = offenses.select(&:error?)
-    def warnings = offenses.reject(&:error?)
-
     def sorted_offenses = offenses.sort_by { |offense| [offense.path, offense.rule.id] }
 
-    # 2 when a file could not be checked, 1 when offenses reach `fail_on`, else 0.
-    def exit_status(fail_on: "error")
+    # 2 when a file could not be checked, 1 when there are offenses, else 0.
+    def exit_status
       return 2 if failures.any?
 
-      failing = case fail_on.to_s
-                when "warning" then offenses
-                when "never" then []
-                else errors
-                end
-      failing.any? ? 1 : 0
+      offenses.any? ? 1 : 0
     end
 
     private

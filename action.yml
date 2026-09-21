@@ -17,7 +17,7 @@ inputs:
     required: false
     default: ""
   args:
-    description: Extra arguments for the lintus command, for example "--fail-on warning" or "--jobs 8".
+    description: Extra arguments for the lintus command, for example "--jobs 8".
     required: false
     default: ""
   version:
