@@ -11,15 +11,21 @@ module Lintus
           summary: {
             files_inspected: report.checked.size,
             offenses: report.offenses.size,
-            errors: report.errors.size,
-            warnings: report.warnings.size,
             skipped: report.skipped.size,
             failures: report.failures.size
           },
           offenses: report.sorted_offenses.map(&:to_h),
+          files: report.checked.sort_by(&:path).map { |checked| file_entry(checked) },
           skipped: report.skipped.map { |skipped| { path: skipped.path, reason: skipped.reason } },
           failures: report.failures.map { |failure| { path: failure.path, error: failure.error.message } }
         )
+      end
+
+      private
+
+      # Every rule asked about the file and the probability it got, offense or not.
+      def file_entry(checked)
+        { path: checked.path, answers: checked.answers.transform_values { |noul| noul.round(3) } }
       end
     end
   end

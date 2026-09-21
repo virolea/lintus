@@ -10,11 +10,9 @@ class TestRule < Minitest::Test
 
     assert_equal "no_sleep", rule.id
     assert_equal "Does this file call sleep?", rule.description
-    assert_equal "error", rule.severity
     assert_equal true, rule.offense_when
     assert_nil rule.threshold
     assert_nil rule.criteria
-    assert rule.error?
     assert rule.applies_to?("anything/at/all.txt")
   end
 
@@ -40,9 +38,9 @@ class TestRule < Minitest::Test
   end
 
   def test_symbol_keys_are_accepted
-    rule = Lintus::Rule.new(:r, { question: "q", severity: :warning, criteria: { "true" => "yes", "false" => "no" } })
+    rule = Lintus::Rule.new(:r, { question: "q", offense_when: false, criteria: { "true" => "yes", "false" => "no" } })
 
-    assert_equal "warning", rule.severity
+    assert_equal false, rule.offense_when
     assert_equal({ "true" => "yes", "false" => "no" }, rule.criteria)
   end
 
@@ -71,7 +69,7 @@ class TestRule < Minitest::Test
     assert_config_error("invalid rule id") { Lintus::Rule.new("No-Sleep", { "question" => "q" }) }
     assert_config_error("`question` is required") { Lintus::Rule.new("r", { "description" => "d" }) }
     assert_config_error("expected a map") { Lintus::Rule.new("r", "just a string") }
-    assert_config_error("`severity` must be one of") { Lintus::Rule.new("r", { "question" => "q", "severity" => "fatal" }) }
+    assert_config_error("unknown key(s) severity") { Lintus::Rule.new("r", { "question" => "q", "severity" => "error" }) }
     assert_config_error("`threshold` must be") { Lintus::Rule.new("r", { "question" => "q", "threshold" => 2 }) }
     assert_config_error("`criteria` must be a map") { Lintus::Rule.new("r", { "question" => "q", "criteria" => "x" }) }
     assert_config_error("`offense_when` must be") { Lintus::Rule.new("r", { "question" => "q", "offense_when" => "yes" }) }

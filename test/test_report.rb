@@ -10,19 +10,14 @@ class TestReport < Minitest::Test
     @report = Lintus::Report.new
   end
 
-  def test_exit_status_by_fail_level
+  def test_exit_status
     assert_equal 0, @report.exit_status
 
     @report.record_checked("a.rb", [Lintus::Offense.new(path: "a.rb", rule: @config.rule(:documented), noul: 0.1)])
-    assert_equal 0, @report.exit_status
-    assert_equal 1, @report.exit_status(fail_on: "warning")
-
-    @report.record_checked("a.rb", [Lintus::Offense.new(path: "a.rb", rule: @config.rule(:no_sleep), noul: 0.9)])
     assert_equal 1, @report.exit_status
-    assert_equal 0, @report.exit_status(fail_on: "never")
 
     @report.record_failure("b.rb", Jev::APIError.new(500, "boom"))
-    assert_equal 2, @report.exit_status(fail_on: "never")
+    assert_equal 2, @report.exit_status
   end
 
   def test_sorted_offenses_are_stable_by_path_then_rule

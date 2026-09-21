@@ -23,7 +23,6 @@ module LintusTestHelpers
       "description" => "Classes carry a comment.",
       "question" => "Is every class documented?",
       "offense_when" => false,
-      "severity" => "warning",
       "threshold" => 0.7
     }
   }.freeze

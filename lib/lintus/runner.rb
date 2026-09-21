@@ -23,17 +23,21 @@ module Lintus
       end
     end
 
-    # Checks the [file, rules] pairs from #plan concurrently.
+    # Checks the [file, rules] pairs from #plan concurrently. The block, if
+    # given, is called with the number of files done after each one finishes.
     def run(tasks)
       report = Report.new
       queue = Queue.new
       tasks.each { |task| queue << task }
       queue.close
+      done = 0
+      counter = Mutex.new
 
       workers = Array.new([jobs, tasks.size].min) do
         Thread.new do
           while (task = queue.pop)
             check(*task, report)
+            counter.synchronize { yield(done += 1) } if block_given?
           end
         end
       end
@@ -50,7 +54,8 @@ module Lintus
       end
 
       response = with_retries { perform(file, rules, content) }
-      report.record_checked(file.path, offenses_for(file, rules, response.answers))
+      answers = rules.to_h { |rule| [rule.id, response.answers[rule.id].noul] }
+      report.record_checked(file.path, offenses_for(file, rules, response.answers), answers)
     rescue Jev::Error, Error => e
       report.record_failure(file.path, e)
     end

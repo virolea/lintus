@@ -7,7 +7,7 @@ module Lintus
       private
 
       def offense_line(offense)
-        "#{offense.path}: [#{offense.rule.id}] #{offense.message} (#{offense.severity}, noul #{offense.noul.round(2)})"
+        "#{offense.path}: [#{offense.rule.id}] #{offense.message} (noul #{offense.noul.round(2)})"
       end
 
       def skipped_line(skipped) = "#{skipped.path}: skipped, #{skipped.reason}"

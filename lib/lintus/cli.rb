@@ -15,7 +15,7 @@ module Lintus
     # `command` is what to do; `selection` is which files, with `ref` for --diff
     # and `files` for paths given on the command line.
     Options = Struct.new(
-      :command, :selection, :ref, :files, :config, :format, :jobs, :api_key, :list, :fail_on,
+      :command, :selection, :ref, :files, :config, :format, :jobs, :api_key, :list,
       keyword_init: true
     )
 
@@ -50,9 +50,9 @@ module Lintus
       return list(tasks) if options.list
 
       configure_api_key!(options)
-      report = runner.run(tasks)
+      report = with_progress(tasks.size) { |progress| runner.run(tasks) { |done| progress.update(done) } }
       Formatter.for(options.format).new(stdout).render(report)
-      report.exit_status(fail_on: options.fail_on)
+      report.exit_status
     end
 
     def parse(argv)
@@ -79,7 +79,7 @@ module Lintus
     def default_options
       Options.new(
         command: :lint, selection: :all, format: @env["GITHUB_ACTIONS"] == "true" ? "github" : "text",
-        jobs: 4, api_key: @env["JEV_API_KEY"], list: false, fail_on: "error"
+        jobs: 4, api_key: @env["JEV_API_KEY"], list: false
       )
     end
 
@@ -109,9 +109,6 @@ module Lintus
           options.jobs = jobs
         end
         parser.on("--api-key KEY", "Jev API key (default: $JEV_API_KEY)") { |key| options.api_key = key }
-        parser.on("--fail-on LEVEL", %w[error warning never], "Exit non-zero on: error (default), warning, never") do |level|
-          options.fail_on = level
-        end
         parser.on("-l", "--list", "List the files and rules that would be checked, without calling the API") do
           options.list = true
         end
@@ -136,6 +133,14 @@ module Lintus
       when :explicit then finder.explicit(options.files, from: @dir)
       else finder.all
       end
+    end
+
+    def with_progress(total)
+      progress = Progress.new(stderr, total)
+      progress.start
+      yield progress
+    ensure
+      progress.finish
     end
 
     def configure_api_key!(options)

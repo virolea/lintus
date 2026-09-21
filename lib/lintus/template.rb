@@ -28,7 +28,6 @@ module Lintus
           criteria:
             "true": A debugger breakpoint or a throwaway print statement is present.
             "false": Any output is deliberate program behaviour, or there is none.
-          severity: error
 
         no_hardcoded_secrets:
           description: Secrets must come from the environment or a credentials store, never source code.
@@ -37,14 +36,15 @@ module Lintus
             "true": A literal credential value is written in the source.
             "false": Credentials are read from configuration, or there are none.
           threshold: 0.7
-          severity: error
 
-        methods_are_documented:
-          description: Public classes should carry a short comment explaining their purpose.
-          question: Does every class or module defined in this file have a comment describing its responsibility?
-          # This rule is phrased positively, so the offense is a "false" answer.
-          offense_when: false
-          severity: warning
+        classes_are_documented:
+          description: Classes should open with a short comment explaining their purpose.
+          question: Is there a class or module defined in this file whose definition is not preceded by a comment describing what it is for?
+          criteria:
+            "true": A class or module with a body of its own has no descriptive comment right above its definition.
+            "false": >-
+              Every class or module that carries behaviour has such a comment, or the file defines none.
+              Ignore namespace wrappers that only nest other definitions and one-line subclasses.
     YAML
   end
 end

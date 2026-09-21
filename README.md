@@ -19,7 +19,7 @@ rules:
 
 ```
 $ lintus
-app/jobs/retry_job.rb: [no_sleep_in_jobs] Background jobs must never block on sleep. (error, noul 0.94)
+app/jobs/retry_job.rb: [no_sleep_in_jobs] Background jobs must never block on sleep. (noul 0.94)
 
 42 files inspected, 1 offense detected
 ```
@@ -81,13 +81,11 @@ rules:
       - "app/**/*.rb"
     exclude:
       - "app/models/legacy/**"
-    severity: error
 
   service_objects_are_documented:
     description: Service objects carry a comment explaining what they do.
     question: Does every class in this file have a comment describing its responsibility?
     offense_when: false
-    severity: warning
     paths:
       - "app/services/**/*.rb"
 ```
@@ -102,7 +100,6 @@ rules:
 | `threshold`    | no       | Probability above which the answer counts as `true`. Defaults to 0.5. Raise it for rules where a false positive is costly. |
 | `paths`        | no       | Globs the rule applies to. Defaults to the top-level `paths`; with neither, every file. |
 | `exclude`      | no       | Globs the rule never applies to, on top of the top-level `exclude`. |
-| `severity`     | no       | `error` (default) or `warning`. Only errors fail the run, unless `--fail-on` says otherwise. |
 | `offense_when` | no       | `true` (default) or `false`. Set to `false` for rules phrased positively, such as "Does every class have a comment?". |
 
 Rule ids are snake_case. They become the question identifiers in the Jev request and the
@@ -120,6 +117,22 @@ Every rule that applies to a file is sent in a single request, evaluated in para
 model. So prefer several narrow questions over one broad one: "Does this file call `sleep`?"
 and "Does this file rescue `Exception`?" as two rules beat "Does this file do anything a job
 should not?".
+
+**Ask about the offense, not about compliance.** "Does every class have a comment?" turns
+false on a single edge case, and there is always one: the namespace wrapper, the reopened
+class, the one-line error subclass. "Is there a class without a comment?" is the same
+question, but its `criteria` can now spell out which classes count. Keep `offense_when: false`
+for questions that are genuinely easier to phrase positively.
+
+**Name the unit and list what to ignore.** The model reads a question literally. When Lintus
+first linted itself with "does every class or module have a comment?", every file was flagged
+with a probability around 0.15: each one opens with an undocumented `module Lintus`. The fix
+was not the threshold but the criteria, which now exclude wrappers whose body only nests other
+definitions.
+
+**Read the probabilities before touching the threshold.** Scores clustered far from 0.5 mean
+the model is sure of its reading of the question. If that reading is not yours, reword. Move
+the threshold only when the scores of clean and offending files overlap around it.
 
 Lintus sends the model the file's path and its full content. A question can therefore refer to
 the file name ("Is this a controller?") as well as the code.
@@ -140,11 +153,15 @@ Only files that at least one rule applies to are sent. Deleted files are never s
 
 `--format text` is the default. `--format github` prints GitHub Actions workflow commands, so
 each offense becomes an annotation on the file in the pull request; it is the default when
-`GITHUB_ACTIONS` is set. `--format json` is for other tools.
+`GITHUB_ACTIONS` is set. `--format json` is for other tools, and it also lists the probability
+every rule gave every file under `files`, offense or not, which is what you want when tuning
+a rule's wording or threshold.
 
-Exit status is `0` when clean, `1` when there are offenses at or above `--fail-on`
-(`error` by default, or `warning`, or `never`), and `2` when a request failed or the
-invocation was wrong.
+Exit status is `0` when clean, `1` when there are offenses, and `2` when a request failed or
+the invocation was wrong.
+
+While a run is in flight, a counter on stderr shows how many files are done. Off a terminal
+(CI logs, pipes) it is a single line announcing the run, so captured output stays clean.
 
 ## GitHub Actions
 
@@ -204,7 +221,6 @@ Either way `JEV_API_KEY` must be in the environment of the shell running the com
 -c, --config PATH      Config file to use instead of searching for one
 -j, --jobs N           Concurrent requests to the Jev API (default 4)
     --api-key KEY      Jev API key (default: $JEV_API_KEY)
-    --fail-on LEVEL    error (default), warning, or never
 -l, --list             Show what would be checked without calling the API
 ```
 

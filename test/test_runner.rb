@@ -29,9 +29,9 @@ class TestRunner < Minitest::Test
       assert_equal({ "type" => "noul", "instructions" => "Does this file call sleep?" }, body["questions"]["no_sleep"])
     end
 
-    assert_equal ["app/jobs/a_job.rb"], report.checked
-    assert_equal([["no_sleep", 0.9, "error"], ["documented", 0.2, "warning"]],
-                 report.offenses.map { |o| [o.rule.id, o.noul, o.severity] })
+    assert_equal ["app/jobs/a_job.rb"], report.checked.map(&:path)
+    assert_equal({ "no_sleep" => 0.9, "documented" => 0.2 }, report.checked.first.answers)
+    assert_equal([["no_sleep", 0.9], ["documented", 0.2]], report.offenses.map { |o| [o.rule.id, o.noul] })
   end
 
   def test_thresholds_and_offense_when_are_honoured
@@ -60,7 +60,7 @@ class TestRunner < Minitest::Test
     assert_requested(:post, API_URL, times: 1) { |request| JSON.parse(request.body)["state"].include?("lib/ok.rb") }
     assert_equal ["lib/bin.rb", "lib/big.rb"], report.skipped.map(&:path)
     assert_includes report.skipped.last.reason, "max_file_size"
-    assert_equal ["lib/ok.rb"], report.checked
+    assert_equal ["lib/ok.rb"], report.checked.map(&:path)
   end
 
   def test_retries_rate_limits_with_backoff_then_succeeds
@@ -109,6 +109,16 @@ class TestRunner < Minitest::Test
 
     assert_equal 6, report.checked.size
     assert_operator Array.new(threads.size) { threads.pop }.uniq.size, :>, 1
+  end
+
+  def test_reports_progress_after_each_file
+    stub_jev({ "documented" => noul(0.1) })
+    seen = []
+    runner = Lintus::Runner.new(@config, jobs: 2)
+
+    runner.run(runner.plan(Array.new(4) { |i| source("lib/f#{i}.rb") })) { |done| seen << done }
+
+    assert_equal [1, 2, 3, 4], seen
   end
 
   def test_unreadable_files_are_recorded_as_failures

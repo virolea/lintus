@@ -21,12 +21,17 @@ rules:
     criteria:
       "true": At least one raised message is vague, such as "invalid" or "failed", with no detail.
       "false": Every raised message names the problem, or no errors are raised.
-    severity: warning
 
   classes_are_documented:
     description: Each class and module should open with a comment describing its responsibility.
-    question: Does every top-level class or module in this file have a comment describing what it is for?
-    offense_when: false
-    severity: warning
+    question: Is there a class or module defined in this file whose definition is not preceded by a comment describing what it is for?
+    criteria:
+      "true": >-
+        A class or module with a body of its own is introduced without a descriptive comment on the
+        lines right above its `class` or `module` line.
+      "false": >-
+        Every class or module that carries behaviour has such a comment, or the file defines none.
+        Ignore namespace wrappers whose body only nests other definitions, classes reopened only to
+        nest another definition, and one-line subclasses such as `class Error < StandardError; end`.
     exclude:
       - "exe/*"
