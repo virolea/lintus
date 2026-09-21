@@ -218,6 +218,18 @@ to run the tests and RuboCop. `bin/console` gives you an IRB session with the ge
 
 The repository lints itself: see `.lintus.yml` and `.github/workflows/lintus.yml`.
 
+### Releasing
+
+Bump `lib/lintus/version.rb`, add the entry to `CHANGELOG.md`, and push a matching tag:
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+The release workflow checks that the tag matches the version, runs the tests, and pushes the
+gem to rubygems.org through trusted publishing. Alternatively, `bundle exec rake release` does
+the same from a machine that is signed in to rubygems.org.
+
 ## Contributing
 
 Bug reports and pull requests are welcome on GitHub at https://github.com/virolea/lintus.

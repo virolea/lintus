@@ -1,0 +1,41 @@
+# Publishes the gem to rubygems.org when a version tag is pushed.
+#
+# Uses RubyGems trusted publishing (OIDC), so no API key is stored in the
+# repository. One-time setup on rubygems.org, before the first release:
+#   Profile > Pending trusted publishers > Add: gem "lintus",
+#   repository virolea/lintus, workflow release.yml (no environment).
+# After the first release the publisher moves to the gem's own settings.
+#
+# To release: bump lib/lintus/version.rb and CHANGELOG.md on main, then
+#   git tag v0.1.0 && git push origin v0.1.0
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # rake release pushes the tag if it is not there yet
+      id-token: write   # trusted publishing
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - name: Check the tag matches the gem version
+        run: |
+          version="v$(ruby -Ilib -e 'require "lintus/version"; print Lintus::VERSION')"
+          if [ "$GITHUB_REF_NAME" != "$version" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match Lintus::VERSION ($version)" >&2
+            exit 1
+          fi
+      - name: Run tests
+        run: bundle exec rake test
+      - name: Build and push to rubygems.org
+        uses: rubygems/release-gem@v1
