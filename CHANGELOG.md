@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-21
+
 - A progress counter on stderr while files are being checked.
 - The JSON output lists every file with the probability each rule gave it, not only offenses.
 - The starter config's documentation rule asks about the offense and scopes it with criteria,

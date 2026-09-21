@@ -180,7 +180,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0   # needed to diff against the base branch
-      - uses: virolea/lintus@v0.1.0
+      - uses: virolea/lintus@v0.2.0
         with:
           jev-api-key: ${{ secrets.JEV_API_KEY }}
 ```
@@ -197,7 +197,7 @@ With [pre-commit](https://pre-commit.com):
 ```yaml
 repos:
   - repo: https://github.com/virolea/lintus
-    rev: v0.1.0
+    rev: v0.2.0
     hooks:
       - id: lintus
 ```
@@ -239,7 +239,7 @@ The repository lints itself: see `.lintus.yml` and `.github/workflows/lintus.yml
 Bump `lib/lintus/version.rb`, add the entry to `CHANGELOG.md`, and push a matching tag:
 
 ```bash
-git tag v0.1.0 && git push origin v0.1.0
+git tag v0.2.0 && git push origin v0.2.0
 ```
 
 The release workflow checks that the tag matches the version, runs the tests, and pushes the
