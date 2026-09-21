@@ -10,11 +10,11 @@ probability), and reports an offense wherever the answer says so.
 ```yaml
 # .lintus.yml
 rules:
-  no_sleep_in_jobs:
-    description: Background jobs must never block on sleep.
-    question: Does this file call `sleep` inside a job's perform method?
+  no_business_logic_in_controllers:
+    description: Controllers should not implement business logic
+    question: "Does this controller implement logic that sits outside from the following responsibilities: networking, authorization, delegation to domain models and response?"
     paths:
-      - "app/jobs/**/*.rb"
+      - "app/controllers/**/*.rb"
 ```
 
 ```
