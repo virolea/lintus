@@ -29,7 +29,8 @@ class TestRunner < Minitest::Test
       assert_equal({ "type" => "noul", "instructions" => "Does this file call sleep?" }, body["questions"]["no_sleep"])
     end
 
-    assert_equal ["app/jobs/a_job.rb"], report.checked
+    assert_equal ["app/jobs/a_job.rb"], report.checked.map(&:path)
+    assert_equal({ "no_sleep" => 0.9, "documented" => 0.2 }, report.checked.first.answers)
     assert_equal([["no_sleep", 0.9], ["documented", 0.2]], report.offenses.map { |o| [o.rule.id, o.noul] })
   end
 
@@ -59,7 +60,7 @@ class TestRunner < Minitest::Test
     assert_requested(:post, API_URL, times: 1) { |request| JSON.parse(request.body)["state"].include?("lib/ok.rb") }
     assert_equal ["lib/bin.rb", "lib/big.rb"], report.skipped.map(&:path)
     assert_includes report.skipped.last.reason, "max_file_size"
-    assert_equal ["lib/ok.rb"], report.checked
+    assert_equal ["lib/ok.rb"], report.checked.map(&:path)
   end
 
   def test_retries_rate_limits_with_backoff_then_succeeds

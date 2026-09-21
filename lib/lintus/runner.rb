@@ -54,7 +54,8 @@ module Lintus
       end
 
       response = with_retries { perform(file, rules, content) }
-      report.record_checked(file.path, offenses_for(file, rules, response.answers))
+      answers = rules.to_h { |rule| [rule.id, response.answers[rule.id].noul] }
+      report.record_checked(file.path, offenses_for(file, rules, response.answers), answers)
     rescue Jev::Error, Error => e
       report.record_failure(file.path, e)
     end

@@ -1,6 +1,9 @@
 ## [Unreleased]
 
 - A progress counter on stderr while files are being checked.
+- The JSON output lists every file with the probability each rule gave it, not only offenses.
+- The starter config's documentation rule asks about the offense and scopes it with criteria,
+  so namespace wrappers no longer trip it.
 - Removed rule `severity` and the `--fail-on` flag: an offense is an offense. A config that still
   sets `severity` is rejected with a message naming the key.
 

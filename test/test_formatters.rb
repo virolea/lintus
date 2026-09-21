@@ -8,7 +8,7 @@ class TestFormatters < Minitest::Test
   def setup
     config = build_config
     @report = Lintus::Report.new
-    @report.record_checked("lib/ok.rb", [])
+    @report.record_checked("lib/ok.rb", [], { "no_sleep" => 0.0123, "documented" => 0.9 })
     @report.record_checked("app/jobs/a_job.rb", [
                              Lintus::Offense.new(path: "app/jobs/a_job.rb", rule: config.rule(:no_sleep), noul: 0.912),
                              Lintus::Offense.new(path: "app/jobs/a_job.rb", rule: config.rule(:documented), noul: 0.3)
@@ -61,6 +61,8 @@ class TestFormatters < Minitest::Test
 
     assert_equal summary, data["summary"]
     assert_equal offense, data["offenses"].last
+    assert_equal [{ "path" => "app/jobs/a_job.rb", "answers" => {} },
+                  { "path" => "lib/ok.rb", "answers" => { "no_sleep" => 0.012, "documented" => 0.9 } }], data["files"]
     assert_equal [{ "path" => "lib/blob.rb", "reason" => "binary file" }], data["skipped"]
     assert_equal "Jev API error 500: boom", data["failures"].first["error"]
   end

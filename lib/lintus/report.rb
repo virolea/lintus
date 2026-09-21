@@ -3,6 +3,7 @@
 module Lintus
   # Everything a run produced: what was checked, what was flagged, what was skipped, what broke.
   class Report
+    Checked = Struct.new(:path, :answers, keyword_init: true)
     Skipped = Struct.new(:path, :reason, keyword_init: true)
     Failure = Struct.new(:path, :error, keyword_init: true)
 
@@ -16,9 +17,11 @@ module Lintus
       @mutex = Mutex.new
     end
 
-    def record_checked(path, offenses)
+    # `answers` maps every rule asked about the file to the probability it got,
+    # offense or not, so a run can be read for confidence and not just verdicts.
+    def record_checked(path, offenses, answers = {})
       synchronize do
-        checked << path
+        checked << Checked.new(path: path, answers: answers)
         self.offenses.concat(offenses)
       end
     end
