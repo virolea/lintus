@@ -19,7 +19,7 @@ rules:
 
 ```
 $ lintus
-app/jobs/retry_job.rb: [no_sleep_in_jobs] Background jobs must never block on sleep. (noul 0.94)
+app/controllers/resgistrations_controller.rb: [no_business_logic_in_mutations] Mutations should only implement business logic (noul 0.88)
 
 42 files inspected, 1 offense detected
 ```
