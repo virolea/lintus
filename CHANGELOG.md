@@ -13,6 +13,8 @@
 - `--diff` and `--staged` together are an error; before, the last one given won.
 - Skipped and failed files are listed in path order, not in the order they finished.
 - The Jev client ships as its own crate, `jev-api`.
+- The Ruby implementation is removed. The `lintus` gem stays at 0.2.0, and is no longer
+  updated.
 
 ## [0.2.0] - 2026-09-21
 

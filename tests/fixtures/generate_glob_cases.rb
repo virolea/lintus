@@ -2,10 +2,11 @@
 
 # Writes glob_cases.tsv: whether the Ruby lintus matched each pattern against
 # each path, one "pattern<TAB>path<TAB>0|1" line per pair. The Rust matcher is
-# tested against it (src/glob.rs). Run from the repository root while the Ruby
-# implementation is still there:
+# tested against it (src/glob.rs). The Ruby implementation was removed after
+# 82e27d3, so regenerating needs a checkout of that commit:
 #
-#   ruby -Ilib tests/fixtures/generate_glob_cases.rb
+#   git worktree add /tmp/lintus-ruby 82e27d3
+#   ruby -I/tmp/lintus-ruby/lib tests/fixtures/generate_glob_cases.rb
 require "lintus"
 
 PATTERNS = [
