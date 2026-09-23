@@ -1,5 +1,21 @@
 ## [Unreleased]
 
+- Lintus is now a single binary, rewritten in Rust: no Ruby needed. Install it with the
+  script or the archives on the GitHub releases, or `cargo install lintus`. Config files,
+  flags, output formats and exit statuses are unchanged, checked by a conformance suite that
+  both implementations pass.
+- `lintus auth login`, `status` and `logout` save the Jev API key in the user's config
+  directory. A run takes the key from `--api-key`, then `JEV_API_KEY`, then the saved key.
+- `JEV_API_URL` sends requests to another endpoint, such as a proxy.
+- The GitHub Action downloads the binary instead of setting up Ruby; its `ruby-version`
+  input is ignored. The pre-commit hook builds lintus from source.
+- A request that cannot reach the API fails its file instead of stopping the run.
+- `--diff` and `--staged` together are an error; before, the last one given won.
+- Skipped and failed files are listed in path order, not in the order they finished.
+- The Jev client ships as its own crate, `jev-api`.
+- The Ruby implementation is removed. The `lintus` gem stays at 0.2.0, and is no longer
+  updated.
+
 ## [0.2.0] - 2026-09-21
 
 - A progress counter on stderr while files are being checked.

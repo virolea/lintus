@@ -1,0 +1,28 @@
+[package]
+name = "jev-api"
+version = "0.1.0"
+description = "A typed client for the Typesafe Jev model API."
+readme = "README.md"
+keywords = ["jev", "typesafe", "llm", "api-client"]
+categories = ["api-bindings"]
+homepage.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+indexmap = { workspace = true, features = ["serde"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true, features = ["preserve_order"] }
+ureq = { version = "3", default-features = false, features = ["rustls", "platform-verifier", "json"] }
+
+# To tell whether the system has CA certificates, the way the platform verifier looks for them.
+[target.'cfg(all(unix, not(target_os = "android"), not(target_vendor = "apple")))'.dependencies]
+rustls-native-certs = "0.8"
+
+[lib]
+name = "jev"
+
+[dev-dependencies]
+tiny_http.workspace = true

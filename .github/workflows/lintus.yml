@@ -1,5 +1,5 @@
-# Lintus linting itself. Uses the action defined in this repository, so it also
-# serves as a smoke test of action.yml. Skipped on forks without the secret.
+# Lintus linting itself, built from this checkout. It also checks, on every pull
+# request, that a real call to the Jev API works. Skipped on forks without the secret.
 name: Lintus
 
 on:
@@ -18,12 +18,12 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Set up Ruby
+      - uses: dtolnay/rust-toolchain@stable
         if: env.JEV_API_KEY != ''
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.3"
-          bundler-cache: true
+      - uses: Swatinem/rust-cache@v2
+        if: env.JEV_API_KEY != ''
       - name: Run lintus from this checkout
         if: env.JEV_API_KEY != ''
-        run: bundle exec exe/lintus --format github --diff "origin/${{ github.base_ref }}"
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: cargo run --release --locked -- --format github --diff "origin/$BASE_REF"

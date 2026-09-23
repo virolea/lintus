@@ -1,37 +1,27 @@
 # Lintus lints itself with these rules. See README.md for the format.
 
 paths:
-  - "lib/**/*.rb"
-  - "exe/*"
-
-exclude:
-  - "lib/lintus/version.rb"
+  - "src/**/*.rs"
+  - "crates/*/src/**/*.rs"
 
 rules:
   no_debugging_leftovers:
     description: Debugging statements must not be committed.
-    question: Does this file contain leftover debugging code, such as binding.irb, debugger, or a puts/p/pp used to inspect a value?
+    question: Does this file contain leftover debugging code, such as dbg!, or a println!/eprintln! used to inspect a value?
     criteria:
-      "true": A debugger breakpoint or a throwaway print statement is present.
+      "true": A dbg! call, or a print statement that dumps an internal value rather than telling the user something, is present.
       "false": Any output is deliberate program behaviour, or there is none.
 
   errors_are_actionable:
-    description: Raised error messages must tell the user what was wrong and what to do about it.
-    question: Does this file raise an error whose message would leave a user unsure of what went wrong or how to fix it?
+    description: Error messages must tell the user what was wrong and what to do about it.
+    question: Does this file build an error message that would leave a user unsure of what went wrong or how to fix it?
     criteria:
-      "true": At least one raised message is vague, such as "invalid" or "failed", with no detail.
-      "false": Every raised message names the problem, or no errors are raised.
+      "true": At least one message is vague, such as "invalid" or "failed", with no detail.
+      "false": Every message names the problem, or the file builds no error messages.
 
-  classes_are_documented:
-    description: Each class and module should open with a comment describing its responsibility.
-    question: Is there a class or module defined in this file whose definition is not preceded by a comment describing what it is for?
+  modules_are_documented:
+    description: Each module should open with a comment describing its responsibility.
+    question: Does this file start without a module-level doc comment (//!) explaining what the module is for?
     criteria:
-      "true": >-
-        A class or module with a body of its own is introduced without a descriptive comment on the
-        lines right above its `class` or `module` line.
-      "false": >-
-        Every class or module that carries behaviour has such a comment, or the file defines none.
-        Ignore namespace wrappers whose body only nests other definitions, classes reopened only to
-        nest another definition, and one-line subclasses such as `class Error < StandardError; end`.
-    exclude:
-      - "exe/*"
+      "true": The file does not open with a //! comment, or that comment does not say what the module does.
+      "false": The file opens with a //! comment describing its purpose.
