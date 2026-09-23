@@ -27,7 +27,7 @@ impl Client {
             return Err(Error::MissingApiKey);
         }
 
-        let tls = ureq::tls::TlsConfig::builder().root_certs(ureq::tls::RootCerts::PlatformVerifier).build();
+        let tls = ureq::tls::TlsConfig::builder().root_certs(root_certs()).build();
         let agent = ureq::Agent::config_builder()
             .http_status_as_error(false)
             .timeout_connect(Some(Duration::from_secs(60)))
@@ -76,6 +76,18 @@ impl Client {
         }
         Response::parse(query, &text)
     }
+}
+
+/// The operating system's certificate store, so that corporate proxies and
+/// private CAs the machine trusts are trusted here too. A Linux system with no
+/// CA certificates at all, such as a slim container image, gets the Mozilla
+/// roots bundled in the binary instead.
+fn root_certs() -> ureq::tls::RootCerts {
+    #[cfg(all(unix, not(target_os = "android"), not(target_vendor = "apple")))]
+    if rustls_native_certs::load_native_certs().certs.is_empty() {
+        return ureq::tls::RootCerts::WebPki;
+    }
+    ureq::tls::RootCerts::PlatformVerifier
 }
 
 impl fmt::Debug for Client {

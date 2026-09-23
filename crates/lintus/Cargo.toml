@@ -11,7 +11,7 @@ repository.workspace = true
 [dependencies]
 clap = { version = "4.6.7", features = ["derive", "wrap_help"] }
 indexmap.workspace = true
-jev = { version = "0.1.0", path = "../jev" }
+jev.workspace = true
 rpassword = "7.5.4"
 serde_json.workspace = true
 yaml-rust2 = "0.13.0"
