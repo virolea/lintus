@@ -7,6 +7,9 @@
 #      for the version: "## [0.3.0] - 2026-10-01".
 #   2. git tag v0.3.0 && git push origin v0.3.0
 #
+# Running this workflow by hand (Actions > Release > Run workflow) only builds
+# and tests the binaries, without releasing anything: a dry run before tagging.
+#
 # crates.io uses trusted publishing (OIDC), so no token is stored in the
 # repository. It can only be set up for a crate that exists, so publish
 # jev-api and lintus once by hand with `cargo publish`, then add this
@@ -17,12 +20,14 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   check:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,6 +43,7 @@ jobs:
 
   build:
     needs: check
+    if: ${{ !cancelled() && needs.check.result != 'failure' }}
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -99,6 +105,7 @@ jobs:
 
   release:
     needs: build
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write

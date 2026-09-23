@@ -10,6 +10,8 @@
 - The GitHub Action downloads the binary instead of setting up Ruby; its `ruby-version`
   input is ignored. The pre-commit hook builds lintus from source.
 - A request that cannot reach the API fails its file instead of stopping the run.
+- `--diff` and `--staged` together are an error; before, the last one given won.
+- Skipped and failed files are listed in path order, not in the order they finished.
 - The Jev client ships as its own crate, `jev-api`.
 
 ## [0.2.0] - 2026-09-21

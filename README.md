@@ -229,8 +229,8 @@ repos:
 ```
 
 pre-commit passes the staged file names, so only those are checked. The first run builds
-lintus from source, installing a Rust toolchain for it if there is none; later runs reuse the
-build. If lintus is already installed, a local hook skips the build:
+lintus from source, installing a Rust toolchain for it if there is none (a C compiler is
+still needed); later runs reuse the build. If lintus is already installed, a local hook skips the build:
 
 ```yaml
 repos:

@@ -21,6 +21,8 @@ random = Random.new(20_260_923)
 
 path = File.join(__dir__, "round_cases.tsv")
 File.open(path, "w") do |file|
-  values.uniq.each { |value| file.puts format("%016x\t%s\t%s", bits(value), value.round(2), value.round(3)) }
+  values.uniq.each do |value|
+    file.puts format("%<bits>016x\t%<two>s\t%<three>s", bits: bits(value), two: value.round(2), three: value.round(3))
+  end
 end
 puts "Wrote #{values.uniq.size} cases to #{path}"
