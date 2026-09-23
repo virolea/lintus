@@ -1,0 +1,16 @@
+[package]
+name = "lintus"
+version = "0.3.0"
+description = "A linter whose rules are plain-language questions, answered by the Jev model."
+readme = "../../README.md"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+
+[dev-dependencies]
+serde_json.workspace = true
+tempfile.workspace = true
+tiny_http.workspace = true

@@ -1,0 +1,10 @@
+[package]
+name = "jev"
+version = "0.1.0"
+description = "A typed client for the Typesafe Jev model API."
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]

@@ -1,0 +1,17 @@
+[workspace]
+members = ["crates/jev", "crates/lintus"]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+license = "MIT"
+authors = ["Vincent Rolea"]
+repository = "https://github.com/virolea/lintus"
+
+[workspace.dependencies]
+jev = { path = "crates/jev", version = "0.1.0" }
+indexmap = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+tempfile = "3"
+tiny_http = "0.12"

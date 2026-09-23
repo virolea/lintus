@@ -8,3 +8,5 @@
 *.gem
 /.irbrc
 Gemfile.lock
+
+/target/
