@@ -50,7 +50,8 @@ fn query() -> Query {
 
 #[test]
 fn sends_the_query_as_json_with_the_api_key() {
-    let (url, received) = serve_once(200, r#"{"model":"jev-1.13.0","answers":{"is_urgent":{"type":"noul","noul":0.95}}}"#);
+    let (url, received) =
+        serve_once(200, r#"{"model":"jev-1.13.0","answers":{"is_urgent":{"type":"noul","noul":0.95}}}"#);
 
     let response = Client::new("secret").unwrap().with_api_url(&url).perform(&query()).unwrap();
 
@@ -102,7 +103,8 @@ fn error_statuses_become_api_errors() {
 fn an_unreachable_api_is_a_transport_error() {
     let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
 
-    let error = Client::new("key").unwrap().with_api_url(format!("http://127.0.0.1:{port}/")).perform(&query()).unwrap_err();
+    let error =
+        Client::new("key").unwrap().with_api_url(format!("http://127.0.0.1:{port}/")).perform(&query()).unwrap_err();
 
     assert!(matches!(error, Error::Transport(_)), "{error:?}");
     assert!(!error.is_retryable());

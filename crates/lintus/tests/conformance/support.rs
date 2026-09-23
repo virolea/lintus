@@ -85,17 +85,8 @@ impl Project {
     }
 
     pub fn git(&self, args: &[&str]) -> String {
-        let output = isolate_git(process::Command::new("git"))
-            .args(args)
-            .current_dir(&self.root)
-            .output()
-            .unwrap();
-        assert!(
-            output.status.success(),
-            "git {} failed: {}",
-            args.join(" "),
-            String::from_utf8_lossy(&output.stderr)
-        );
+        let output = isolate_git(process::Command::new("git")).args(args).current_dir(&self.root).output().unwrap();
+        assert!(output.status.success(), "git {} failed: {}", args.join(" "), String::from_utf8_lossy(&output.stderr));
         String::from_utf8(output.stdout).unwrap()
     }
 

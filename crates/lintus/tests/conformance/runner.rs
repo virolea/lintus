@@ -27,7 +27,10 @@ fn one_request_per_file_with_every_rule_that_applies() {
     assert_eq!(job.body["model"], "jev-latest");
     assert_eq!(job.state(), "File: app/jobs/a_job.rb\n\nsleep 1\n");
     assert_eq!(job.question_ids(), ["no_sleep", "documented"]);
-    assert_eq!(job.question("no_sleep"), &serde_json::json!({ "type": "noul", "instructions": "Does this file call sleep?" }));
+    assert_eq!(
+        job.question("no_sleep"),
+        &serde_json::json!({ "type": "noul", "instructions": "Does this file call sleep?" })
+    );
     assert_eq!(job.body.as_object().unwrap().keys().collect::<Vec<_>>(), ["model", "state", "questions"]);
 
     assert_eq!(requests[1].state(), "File: lib/b.rb\n\nclass B; end\n");
@@ -72,7 +75,10 @@ fn the_default_max_file_size_is_100000_bytes() {
 
     let out = project.lintus(&["-j", "1"]).api(&server).run();
 
-    assert_eq!(out.stdout, "lib/big.rb: skipped, larger than max_file_size (100001 > 100000 bytes)\n\n1 file inspected, 0 offenses detected, 1 file skipped\n");
+    assert_eq!(
+        out.stdout,
+        "lib/big.rb: skipped, larger than max_file_size (100001 > 100000 bytes)\n\n1 file inspected, 0 offenses detected, 1 file skipped\n"
+    );
 }
 
 #[test]
@@ -121,7 +127,9 @@ fn other_api_errors_fail_the_file_without_retrying() {
         assert_eq!(out.code, 2, "{status}: {out:?}");
         assert_eq!(
             out.stdout,
-            format!("lib/b.rb: failed, Jev API error {status}: {body}\n\n0 files inspected, 0 offenses detected, 1 file failed\n")
+            format!(
+                "lib/b.rb: failed, Jev API error {status}: {body}\n\n0 files inspected, 0 offenses detected, 1 file failed\n"
+            )
         );
         assert_eq!(server.requests().len(), 1, "{status}");
     }
@@ -177,7 +185,8 @@ fn files_are_checked_concurrently_up_to_jobs() {
     for i in 0..6 {
         project.write(&format!("lib/f{i}.rb"), "class F; end\n");
     }
-    let slow = || FakeJev::start(|request, _| Reply::nouls(request, &[("documented", 0.9)]).after(Duration::from_millis(150)));
+    let slow =
+        || FakeJev::start(|request, _| Reply::nouls(request, &[("documented", 0.9)]).after(Duration::from_millis(150)));
 
     let server = slow();
     let out = project.lintus(&["--jobs", "3"]).api(&server).run();

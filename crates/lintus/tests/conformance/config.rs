@@ -47,7 +47,13 @@ fn a_missing_config_is_reported() {
 
     let out = project.lintus(&["--list"]).run();
     assert_eq!(out.code, 2);
-    assert!(out.stderr.starts_with("lintus: No config file found: looked for .lintus.yml, lintus.yml, .lintus.yaml, lintus.yaml in "), "{}", out.stderr);
+    assert!(
+        out.stderr.starts_with(
+            "lintus: No config file found: looked for .lintus.yml, lintus.yml, .lintus.yaml, lintus.yaml in "
+        ),
+        "{}",
+        out.stderr
+    );
 
     let out = project.lintus(&["--config", "nope.yml", "--list"]).run();
     assert_eq!(out.code, 2);
@@ -86,7 +92,10 @@ fn invalid_configs_are_rejected_with_a_precise_message() {
             "rules:\n  No-Sleep:\n    question: q\n",
             "invalid rule id \"No-Sleep\": use snake_case (letters, digits, underscores)",
         ),
-        ("rules:\n  1abc:\n    question: q\n", "invalid rule id \"1abc\": use snake_case (letters, digits, underscores)"),
+        (
+            "rules:\n  1abc:\n    question: q\n",
+            "invalid rule id \"1abc\": use snake_case (letters, digits, underscores)",
+        ),
         ("rules:\n  r:\n    description: d\n", "rule r: `question` is required"),
         ("rules:\n  r:\n    question: '  '\n", "rule r: `question` is required"),
         ("rules:\n  r: just a string\n", "rule r: expected a map of attributes, got \"just a string\""),
@@ -96,8 +105,14 @@ fn invalid_configs_are_rejected_with_a_precise_message() {
             "rule r: unknown key(s) severity (expected question, description, criteria, threshold, paths, exclude, offense_when)",
         ),
         ("rules:\n  r:\n    question: q\n    threshold: 2\n", "rule r: `threshold` must be a number between 0 and 1"),
-        ("rules:\n  r:\n    question: q\n    threshold: high\n", "rule r: `threshold` must be a number between 0 and 1"),
-        ("rules:\n  r:\n    question: q\n    criteria: x\n", "rule r: `criteria` must be a map with `true` and `false` keys"),
+        (
+            "rules:\n  r:\n    question: q\n    threshold: high\n",
+            "rule r: `threshold` must be a number between 0 and 1",
+        ),
+        (
+            "rules:\n  r:\n    question: q\n    criteria: x\n",
+            "rule r: `criteria` must be a map with `true` and `false` keys",
+        ),
         ("rules:\n  r:\n    question: q\n    offense_when: maybe\n", "rule r: `offense_when` must be true or false"),
     ];
 
@@ -191,7 +206,10 @@ rules:
     assert_eq!(out.code, 0, "{out:?}");
     let request = &server.requests()[0];
     assert_eq!(request.question_ids(), ["zeta", "alpha"]);
-    assert_eq!(request.question("zeta"), &serde_json::json!({ "type": "noul", "instructions": "Is this the last letter?" }));
+    assert_eq!(
+        request.question("zeta"),
+        &serde_json::json!({ "type": "noul", "instructions": "Is this the last letter?" })
+    );
     assert_eq!(
         request.question("alpha"),
         &serde_json::json!({

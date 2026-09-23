@@ -57,7 +57,10 @@ fn list_shows_files_and_rules_without_an_api_key() {
     let out = project.lintus(&["--list"]).run();
 
     assert_eq!(out.code, 0, "{out:?}");
-    assert_eq!(out.stdout, "app/jobs/a_job.rb: no_sleep, documented\nlib/b.rb: documented\n2 file(s) would be checked\n");
+    assert_eq!(
+        out.stdout,
+        "app/jobs/a_job.rb: no_sleep, documented\nlib/b.rb: documented\n2 file(s) would be checked\n"
+    );
     assert_eq!(out.stderr, "");
 }
 
@@ -99,7 +102,10 @@ fn a_full_run_reports_offenses_and_exits_1() {
     let out = project.lintus(&[]).api(&server).run();
 
     assert_eq!(out.code, 1, "{out:?}");
-    assert_eq!(out.stdout, "app/jobs/a_job.rb: [no_sleep] Jobs must not sleep. (noul 0.95)\n\n1 file inspected, 1 offense detected\n");
+    assert_eq!(
+        out.stdout,
+        "app/jobs/a_job.rb: [no_sleep] Jobs must not sleep. (noul 0.95)\n\n1 file inspected, 1 offense detected\n"
+    );
     assert_eq!(out.stderr, "Checking 1 file...\n");
 }
 
@@ -164,13 +170,8 @@ fn invalid_arguments_exit_2_with_a_message() {
     let project = Project::git_repo();
     project.write(".lintus.yml", CONFIG);
 
-    for args in [
-        &["--format", "xml"][..],
-        &["--jobs", "many"],
-        &["--no-such-flag"],
-        &["init", "extra"],
-        &["--config"],
-    ] {
+    for args in [&["--format", "xml"][..], &["--jobs", "many"], &["--no-such-flag"], &["init", "extra"], &["--config"]]
+    {
         let out = project.lintus(args).run();
         assert_eq!(out.code, 2, "{args:?}: {out:?}");
         assert!(out.stderr.starts_with("lintus: "), "{args:?}: {}", out.stderr);

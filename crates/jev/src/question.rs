@@ -218,7 +218,10 @@ mod tests {
     #[test]
     fn a_score_sends_its_levels_as_criteria() {
         let score = Score::new("how much?", ["low", "high"]).unwrap();
-        assert_eq!(to_json(score), json!({ "type": "score", "instructions": "how much?", "criteria": ["low", "high"] }));
+        assert_eq!(
+            to_json(score),
+            json!({ "type": "score", "instructions": "how much?", "criteria": ["low", "high"] })
+        );
     }
 
     #[test]

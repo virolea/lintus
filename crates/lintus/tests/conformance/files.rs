@@ -73,7 +73,10 @@ fn diff_uses_the_merge_base_plus_uncommitted_and_untracked_changes() {
     project.git(&["add", "lib/c.rb"]);
 
     assert_eq!(listed(&project.lintus(&["--list", "--diff", main]).run()), ["lib/a.rb", "lib/c.rb", "lib/d.rb"]);
-    assert_eq!(listed(&project.lintus(&["--list", &format!("--diff={main}")]).run()), ["lib/a.rb", "lib/c.rb", "lib/d.rb"]);
+    assert_eq!(
+        listed(&project.lintus(&["--list", &format!("--diff={main}")]).run()),
+        ["lib/a.rb", "lib/c.rb", "lib/d.rb"]
+    );
     assert_eq!(listed(&project.lintus(&["--list", "--diff"]).run()), ["lib/c.rb", "lib/d.rb"]);
     assert_eq!(listed(&project.lintus(&["--list", "-d"]).run()), ["lib/c.rb", "lib/d.rb"]);
     assert_eq!(listed(&project.lintus(&["--diff", "HEAD", "--list"]).run()), ["lib/c.rb", "lib/d.rb"]);
@@ -165,7 +168,11 @@ fn explicit_paths_outside_the_root_are_rejected() {
     assert_eq!(out.code, 2);
     assert_eq!(
         out.stderr,
-        format!("lintus: {} is outside the config root {}\n", project.path("outer.rb").display(), project.path("inner").display())
+        format!(
+            "lintus: {} is outside the config root {}\n",
+            project.path("outer.rb").display(),
+            project.path("inner").display()
+        )
     );
 }
 

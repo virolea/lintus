@@ -182,7 +182,10 @@ fn probabilities_are_rounded_like_ruby_floats() {
         (0.7, "0.7", "0.7"),
     ];
     let project = Project::new();
-    project.write(".lintus.yml", "paths: [\"*.rb\"]\nrules:\n  r:\n    question: q\n    threshold: 0\n    offense_when: true\n");
+    project.write(
+        ".lintus.yml",
+        "paths: [\"*.rb\"]\nrules:\n  r:\n    question: q\n    threshold: 0\n    offense_when: true\n",
+    );
     project.write("a.rb", "x\n");
 
     for &(noul, text, json) in cases {
