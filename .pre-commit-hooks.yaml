@@ -2,17 +2,18 @@
 #
 #   repos:
 #     - repo: https://github.com/virolea/lintus
-#       rev: v0.1.0
+#       rev: v0.3.0
 #       hooks:
 #         - id: lintus
 #
-# pre-commit passes the staged file names as arguments, so only the files in
-# the commit are sent to the model. JEV_API_KEY must be set in the environment.
+# pre-commit builds lintus from source the first time (it installs a Rust
+# toolchain for that if the machine has none), then reuses the build. It passes
+# the staged file names as arguments, so only the files in the commit are sent
+# to the model. The API key comes from JEV_API_KEY or `lintus auth login`.
 - id: lintus
   name: lintus
   description: Lint staged files against the plain-language rules in .lintus.yml, using the Jev model.
   entry: lintus
-  language: ruby
+  language: rust
   pass_filenames: true
   require_serial: true
-  additional_dependencies: []

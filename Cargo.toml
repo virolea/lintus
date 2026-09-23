@@ -1,5 +1,32 @@
+[package]
+name = "lintus"
+version = "0.3.0"
+description = "A linter whose rules are plain-language questions, answered by the Jev model."
+readme = "README.md"
+keywords = ["linter", "llm", "code-review", "ci"]
+categories = ["command-line-utilities", "development-tools"]
+include = ["src/**", "Cargo.toml", "README.md", "CHANGELOG.md", "LICENSE.txt"]
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+clap = { version = "4.6.7", features = ["derive", "wrap_help"] }
+indexmap.workspace = true
+jev.workspace = true
+rpassword = "7.5.4"
+serde_json.workspace = true
+yaml-rust2 = "0.13.0"
+
+[dev-dependencies]
+serde_json.workspace = true
+tempfile.workspace = true
+tiny_http.workspace = true
+
 [workspace]
-members = ["crates/jev", "crates/lintus"]
+members = ["crates/jev"]
 resolver = "3"
 
 [workspace.package]
@@ -7,6 +34,7 @@ edition = "2024"
 license = "MIT"
 authors = ["Vincent Rolea"]
 repository = "https://github.com/virolea/lintus"
+homepage = "https://github.com/virolea/lintus"
 
 [workspace.dependencies]
 jev = { package = "jev-api", path = "crates/jev", version = "0.1.0" }
@@ -15,3 +43,9 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 tempfile = "3"
 tiny_http = "0.12"
+
+# A small, fast binary for the releases.
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

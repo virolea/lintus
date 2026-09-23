@@ -2,7 +2,7 @@
 //! and a way to run the lintus binary under test.
 //!
 //! The binary is the one cargo builds, unless `LINTUS_BIN` names another one
-//! (a path relative to the workspace root works), so the same suite can check
+//! (a path relative to the repository root works), so the same suite can check
 //! any implementation of the command line.
 
 #![allow(dead_code)]
@@ -21,7 +21,7 @@ pub const API_KEY: &str = "test-key";
 
 pub fn lintus_bin() -> PathBuf {
     match std::env::var_os("LINTUS_BIN") {
-        Some(bin) => Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").join(bin),
+        Some(bin) => Path::new(env!("CARGO_MANIFEST_DIR")).join(bin),
         None => PathBuf::from(env!("CARGO_BIN_EXE_lintus")),
     }
 }
@@ -38,7 +38,7 @@ impl Project {
     pub fn new() -> Self {
         let dir = tempfile::Builder::new().prefix("lintus").tempdir().unwrap();
         let home = tempfile::Builder::new().prefix("lintus-home").tempdir().unwrap();
-        let root = dir.path().canonicalize().unwrap();
+        let root = canonical(dir.path());
         Project { dir, home, root }
     }
 
@@ -110,8 +110,19 @@ impl Project {
     }
 }
 
+/// The path with symlinks resolved (macOS's /var is /private/var), without
+/// the `\\?\` prefix Windows adds, which git and humans do not expect.
+fn canonical(path: &Path) -> PathBuf {
+    let path = path.canonicalize().unwrap();
+    match path.to_str().and_then(|p| p.strip_prefix(r"\\?\")) {
+        Some(stripped) => PathBuf::from(stripped),
+        None => path,
+    }
+}
+
 fn isolate_git(mut command: process::Command) -> process::Command {
-    command.env("GIT_CONFIG_GLOBAL", "/dev/null").env("GIT_CONFIG_NOSYSTEM", "1");
+    let null = if cfg!(windows) { "NUL" } else { "/dev/null" };
+    command.env("GIT_CONFIG_GLOBAL", null).env("GIT_CONFIG_NOSYSTEM", "1");
     command
 }
 

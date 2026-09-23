@@ -5,7 +5,7 @@
 # tested against it (src/glob.rs). Run from the repository root while the Ruby
 # implementation is still there:
 #
-#   ruby -Ilib crates/lintus/tests/fixtures/generate_glob_cases.rb
+#   ruby -Ilib tests/fixtures/generate_glob_cases.rb
 require "lintus"
 
 PATTERNS = [

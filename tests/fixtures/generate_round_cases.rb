@@ -5,7 +5,7 @@
 # "<f64 bits in hex><TAB><x.round(2).to_s><TAB><x.round(3).to_s>". The Rust
 # formatter is tested against it (src/format.rs). Run with any Ruby:
 #
-#   ruby crates/lintus/tests/fixtures/generate_round_cases.rb
+#   ruby tests/fixtures/generate_round_cases.rb
 
 def bits(float) = [float].pack("E").unpack1("Q<")
 def next_float(float, direction) = [bits(float) + direction].pack("Q<").unpack1("E")

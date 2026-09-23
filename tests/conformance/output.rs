@@ -148,7 +148,10 @@ fn github_escapes_messages_and_properties() {
         ".lintus.yml",
         "paths: [lib/**]\nrules:\n  r:\n    question: q\n    description: \"100%\\nsure, really: yes\\r\"\n",
     );
-    project.write("lib/a,b:c.rb", "x\n");
+    // Windows does not allow ":" in file names.
+    let (name, escaped) =
+        if cfg!(windows) { ("lib/a,b.rb", "lib/a%2Cb.rb") } else { ("lib/a,b:c.rb", "lib/a%2Cb%3Ac.rb") };
+    project.write(name, "x\n");
     project.write("lib/fail.rb", "x\n");
     let server = FakeJev::start(|request, _| match request.file() {
         "lib/fail.rb" => Reply::status(500, "line 1\nline 2: 50%"),
@@ -159,11 +162,13 @@ fn github_escapes_messages_and_properties() {
 
     assert_eq!(
         out.stdout,
-        "\
-::error file=lib/a%2Cb%3Ac.rb,title=lintus%3A r::100%25%0Asure, really: yes%0D
+        format!(
+            "\
+::error file={escaped},title=lintus%3A r::100%25%0Asure, really: yes%0D
 ::error file=lib/fail.rb,title=lintus%3A request failed::Jev API error 500: line 1%0Aline 2: 50%25
 1 file inspected, 1 offense detected, 1 file failed
 "
+        )
     );
 }
 
