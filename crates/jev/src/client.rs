@@ -1,3 +1,5 @@
+//! The HTTP client that sends a query to the API and reads its response.
+
 use std::fmt;
 use std::time::Duration;
 

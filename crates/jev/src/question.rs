@@ -1,3 +1,5 @@
+//! The three question types and how each one is sent to the API.
+
 use indexmap::IndexMap;
 use serde::Serialize;
 

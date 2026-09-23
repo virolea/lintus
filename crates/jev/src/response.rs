@@ -1,3 +1,5 @@
+//! The API's response, with each answer typed after the question it answers.
+
 use indexmap::IndexMap;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;

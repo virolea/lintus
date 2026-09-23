@@ -1,3 +1,5 @@
+//! The error that stops a run, and how it reaches the user.
+
 use std::fmt;
 
 /// An error that stops the run before or instead of linting: a bad argument,

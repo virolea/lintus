@@ -1,3 +1,5 @@
+//! A query: the state, and the questions to ask of it.
+
 use indexmap::IndexMap;
 
 use crate::{Error, Question, Result};

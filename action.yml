@@ -21,32 +21,65 @@ inputs:
     required: false
     default: ""
   version:
-    description: Version of the lintus gem to install. Defaults to the latest release.
+    description: >-
+      Version of lintus to install, such as 0.3.0. Defaults to the version of the action
+      itself when it is used at a version tag (virolea/lintus@v0.3.0), and to the latest
+      release otherwise.
     required: false
     default: ""
   ruby-version:
-    description: Ruby version to set up when the workflow has not done so already.
+    description: No longer used; lintus is a single binary and needs no Ruby.
     required: false
-    default: "3.3"
+    default: ""
 
 runs:
   using: composite
   steps:
-    - name: Set up Ruby
-      uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: ${{ inputs.ruby-version }}
-
     - name: Install lintus
       shell: bash
       env:
         LINTUS_VERSION: ${{ inputs.version }}
+        ACTION_REF: ${{ github.action_ref }}
       run: |
-        if [ -n "$LINTUS_VERSION" ]; then
-          gem install lintus --version "$LINTUS_VERSION"
-        else
-          gem install lintus
+        version="$LINTUS_VERSION"
+        if [ -z "$version" ]; then
+          case "$ACTION_REF" in
+            v[0-9]*) version="$ACTION_REF" ;;
+            *) version="latest" ;;
+          esac
         fi
+        case "$version" in
+          latest) base="https://github.com/virolea/lintus/releases/latest/download" ;;
+          v*) base="https://github.com/virolea/lintus/releases/download/$version" ;;
+          *) base="https://github.com/virolea/lintus/releases/download/v$version" ;;
+        esac
+
+        case "$RUNNER_OS-$RUNNER_ARCH" in
+          Linux-X64) archive="lintus-x86_64-unknown-linux-musl.tar.gz" ;;
+          Linux-ARM64) archive="lintus-aarch64-unknown-linux-musl.tar.gz" ;;
+          macOS-X64) archive="lintus-x86_64-apple-darwin.tar.gz" ;;
+          macOS-ARM64) archive="lintus-aarch64-apple-darwin.tar.gz" ;;
+          Windows-X64) archive="lintus-x86_64-pc-windows-msvc.zip" ;;
+          *) echo "::error title=lintus::No lintus binary for $RUNNER_OS $RUNNER_ARCH"; exit 1 ;;
+        esac
+
+        dir="$RUNNER_TEMP/lintus"
+        mkdir -p "$dir"
+        cd "$dir"
+        if ! curl -fsSL "$base/$archive" -o "$archive" || ! curl -fsSL "$base/$archive.sha256" -o "$archive.sha256"; then
+          echo "::error title=lintus::Could not download $base/$archive. Releases before 0.3.0 have no binaries."
+          exit 1
+        fi
+        if command -v sha256sum > /dev/null; then actual=$(sha256sum "$archive" | cut -d ' ' -f 1); else actual=$(shasum -a 256 "$archive" | cut -d ' ' -f 1); fi
+        if [ "$actual" != "$(cut -d ' ' -f 1 "$archive.sha256")" ]; then
+          echo "::error title=lintus::The checksum of $archive does not match"
+          exit 1
+        fi
+        case "$archive" in
+          *.zip) unzip -q "$archive" ;;
+          *) tar -xzf "$archive" ;;
+        esac
+        echo "$dir" >> "$GITHUB_PATH"
 
     - name: Run lintus
       shell: bash
@@ -56,6 +89,7 @@ runs:
         LINTUS_ARGS: ${{ inputs.args }}
         PR_BASE_REF: ${{ github.base_ref }}
       run: |
+        lintus --version
         base="$LINTUS_BASE"
         if [ -z "$base" ] && [ -n "$PR_BASE_REF" ]; then
           base="origin/$PR_BASE_REF"

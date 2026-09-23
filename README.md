@@ -29,17 +29,38 @@ commit, so it fits a CI job as well as a pre-commit hook.
 
 ## Installation
 
+Lintus is a single binary with no runtime to install. On macOS and Linux:
+
 ```bash
-gem install lintus
+curl -fsSL https://github.com/virolea/lintus/releases/latest/download/install.sh | sh
 ```
 
-Or add it to your `Gemfile`:
+The script picks the binary for your machine, checks its checksum, and puts it in
+`~/.local/bin` (set `LINTUS_INSTALL_DIR` to change that, and `LINTUS_VERSION` to pin a
+release). You can also download the archive for your platform from the
+[releases](https://github.com/virolea/lintus/releases) yourself: Linux (x86_64 and arm64,
+static, so any distribution), macOS (Intel and Apple silicon) and Windows (x86_64). With a
+Rust toolchain, `cargo install lintus` builds it from source.
 
-```ruby
-gem "lintus", group: :development
+Upgrading from the Ruby gem? Run `gem uninstall lintus` so the old executable does not
+shadow the new one. Config files carry over unchanged.
+
+### API key
+
+Lintus needs a Jev API key. Save it once:
+
+```bash
+lintus auth login     # paste the key at the prompt; it is not echoed
+lintus auth status    # shows which key lintus will use, and where it comes from
+lintus auth logout    # deletes the saved key
 ```
 
-Lintus needs a Jev API key. Export it as `JEV_API_KEY` or pass `--api-key`.
+The key is saved in `~/.config/lintus/credentials.json` (under `$XDG_CONFIG_HOME` when it is
+set, and `%APPDATA%` on Windows), readable by you only. `lintus auth login` also reads the
+key from stdin when it is piped in.
+
+A run takes the key from `--api-key`, then the `JEV_API_KEY` environment variable, then the
+saved key. In CI, set `JEV_API_KEY` from a secret.
 
 ## Getting started
 
@@ -107,9 +128,13 @@ Rule ids are snake_case. They become the question identifiers in the Jev request
 
 ### Globs
 
-Globs use Ruby's `File.fnmatch` with pathname semantics: `*` does not cross directories,
-`**/` does, and `{a,b}` alternation works. A bare directory (`vendor`) and a trailing `**`
-(`vendor/**`) both match everything beneath it.
+`*` does not cross directories, `**/` does, and `{a,b}` alternation works. Wildcards match
+dotfiles too. A bare directory (`vendor`) and a trailing `**` (`vendor/**`) both match
+everything beneath it. These are the semantics of Ruby's `File.fnmatch` with pathname
+matching, which Lintus used when it was a Ruby gem and keeps exactly.
+
+The file is read as YAML 1.1, as Ruby reads it: `yes`, `no`, `on` and `off` are booleans,
+numbers may be written `100_000`, and `<<` merges a mapping into another.
 
 ### Writing good rules
 
@@ -180,15 +205,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0   # needed to diff against the base branch
-      - uses: virolea/lintus@v0.2.0
+      - uses: virolea/lintus@v0.3.0
         with:
           jev-api-key: ${{ secrets.JEV_API_KEY }}
 ```
 
 On pull requests the action lints only the files changed against the base branch, and
 annotates them. Set `base: none` to lint everything, or `base: origin/develop` to diff
-against another ref. Extra flags go in `args`. If the workflow already sets up Ruby, the
-action reuses it.
+against another ref. Extra flags go in `args`. The action downloads the lintus binary for
+the runner (the release matching the action's tag, or `version` if set), so the job needs
+neither Ruby nor Rust.
 
 ## Pre-commit hook
 
@@ -197,12 +223,26 @@ With [pre-commit](https://pre-commit.com):
 ```yaml
 repos:
   - repo: https://github.com/virolea/lintus
-    rev: v0.2.0
+    rev: v0.3.0
     hooks:
       - id: lintus
 ```
 
-pre-commit passes the staged file names, so only those are checked.
+pre-commit passes the staged file names, so only those are checked. The first run builds
+lintus from source, installing a Rust toolchain for it if there is none; later runs reuse the
+build. If lintus is already installed, a local hook skips the build:
+
+```yaml
+repos:
+  - repo: local
+    hooks:
+      - id: lintus
+        name: lintus
+        entry: lintus
+        language: system
+        pass_filenames: true
+        require_serial: true
+```
 
 With a plain git hook, use `--staged` so the linted content is what is actually being
 committed:
@@ -213,26 +253,40 @@ committed:
 exec lintus --staged
 ```
 
-Either way `JEV_API_KEY` must be in the environment of the shell running the commit.
+Either way the key comes from `lintus auth login`, or from `JEV_API_KEY` in the environment
+of the shell running the commit.
 
 ## Other options
 
 ```
 -c, --config PATH      Config file to use instead of searching for one
 -j, --jobs N           Concurrent requests to the Jev API (default 4)
-    --api-key KEY      Jev API key (default: $JEV_API_KEY)
+    --api-key KEY      Jev API key (default: $JEV_API_KEY, then the saved key)
 -l, --list             Show what would be checked without calling the API
 ```
+
+`JEV_API_URL` sends requests to another endpoint than the public API, such as a proxy.
 
 Rate-limited and overloaded responses are retried with exponential backoff, three times per
 file, before the file is reported as failed.
 
 ## Development
 
-After checking out the repo, run `bin/setup` to install dependencies, then `bundle exec rake`
-to run the tests and RuboCop. `bin/console` gives you an IRB session with the gem loaded.
+Lintus is written in Rust. The repository holds two crates: `lintus` (the command line, at
+the root) and `jev-api` (in `crates/jev`, the typed client for the Jev API it is built on).
 
-The repository lints itself: see `.lintus.yml` and `.github/workflows/lintus.yml`.
+```bash
+cargo test --workspace         # unit tests, and the conformance suite in tests/conformance
+cargo run -- --list            # run the command from the checkout
+cargo clippy --workspace --all-targets
+```
+
+The conformance suite runs the `lintus` binary against temporary projects and a fake Jev
+API, and checks its output, exit status and requests byte for byte. `LINTUS_BIN` points it
+at another build of the command.
+
+The repository lints itself: see `.lintus.yml` and `.github/workflows/lintus.yml`. Releases
+are built by `.github/workflows/release.yml` when a version tag is pushed.
 
 ## Contributing
 
@@ -240,4 +294,4 @@ Bug reports and pull requests are welcome on GitHub at https://github.com/virole
 
 ## License
 
-The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
+Lintus is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).

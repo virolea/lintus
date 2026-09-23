@@ -1,3 +1,5 @@
+//! Errors from building a query and from talking to the API.
+
 use std::fmt;
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;

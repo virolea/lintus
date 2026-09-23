@@ -1,13 +1,18 @@
-# jev
+# jev-api
 
 A typed Rust client for the [Typesafe](https://typesafe.ai) Jev model API. It is the Rust
 counterpart of the [`jev` gem](https://github.com/virolea/jev), and what
 [Lintus](https://github.com/virolea/lintus) talks to the API with.
 
+```toml
+[dependencies]
+jev-api = "0.1"   # imported as `jev`
+```
+
 ```rust
 use jev::{Client, Noul, Query, Score};
 
-let client = Client::new(std::env::var("JEV_API_KEY")?)?;
+let client = Client::new(std::env::var("JEV_API_KEY").unwrap_or_default())?;
 
 let mut query = Query::new("Help! My payouts have been failing for 3 days.");
 query.ask("is_urgent", Noul::new("Does this convey urgency?").with_threshold(0.8))?;
