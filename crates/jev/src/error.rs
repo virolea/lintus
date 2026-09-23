@@ -45,7 +45,7 @@ impl Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::MissingApiKey => write!(f, "Missing API key"),
+            Error::MissingApiKey => write!(f, "missing API key: pass the key of your Typesafe account to Client::new"),
             Error::Api(error) => error.fmt(f),
             Error::Transport(message) => write!(f, "could not reach the Jev API: {message}"),
             Error::InvalidResponse(message) => write!(f, "unexpected response from the Jev API: {message}"),

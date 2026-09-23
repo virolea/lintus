@@ -17,7 +17,7 @@ fn project() -> Project {
 }
 
 fn credentials_file(project: &Project) -> std::path::PathBuf {
-    project.config_home().join("lintus/credentials.json")
+    project.config_home().join("lintus").join("credentials.json")
 }
 
 #[test]

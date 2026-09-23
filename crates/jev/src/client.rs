@@ -61,7 +61,7 @@ impl Client {
         }
 
         let body = serde_json::to_vec(&Body { model: MODEL, state: query.state(), questions: query.question_map() })
-            .map_err(|e| Error::InvalidQuestion(e.to_string()))?;
+            .map_err(|e| Error::InvalidQuestion(format!("could not encode the query as JSON: {e}")))?;
 
         let mut response = self
             .agent
@@ -72,7 +72,10 @@ impl Client {
             .map_err(|e| Error::Transport(e.to_string()))?;
 
         let status = response.status().as_u16();
-        let text = response.body_mut().read_to_string().map_err(|e| Error::Transport(e.to_string()))?;
+        let text = response
+            .body_mut()
+            .read_to_string()
+            .map_err(|e| Error::Transport(format!("the response broke off before its end ({e}); try again")))?;
         if !(200..300).contains(&status) {
             return Err(Error::Api(ApiError { status, body: text }));
         }
