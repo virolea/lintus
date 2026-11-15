@@ -19,7 +19,19 @@ fn help_lists_every_option() {
 
     assert_eq!(out.code, 0);
     assert!(out.stdout.contains("Usage: lintus"), "{}", out.stdout);
-    for flag in ["--diff", "--staged", "--config", "--format", "--jobs", "--api-key", "--list", "--version", "--help"] {
+    for flag in [
+        "--diff",
+        "--staged",
+        "--config",
+        "--format",
+        "--jobs",
+        "--api-key",
+        "--list",
+        "--locate",
+        "--json-file",
+        "--version",
+        "--help",
+    ] {
         assert!(out.stdout.contains(flag), "help does not mention {flag}:\n{}", out.stdout);
     }
 }

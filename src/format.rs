@@ -2,7 +2,7 @@
 
 use serde_json::json;
 
-use crate::report::Report;
+use crate::report::{Lines, Report};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Format {
@@ -40,8 +40,9 @@ fn text(report: &Report) -> String {
     let mut out = String::new();
     for offense in &report.offenses {
         out += &format!(
-            "{}: [{}] {} (noul {})\n",
+            "{}{}: [{}] {} (noul {})\n",
             offense.path,
+            offense.lines.map(|lines| format!(":{}", line_range(lines))).unwrap_or_default(),
             offense.rule,
             offense.message,
             ruby_float(ruby_round(offense.noul, 2))
@@ -63,7 +64,11 @@ fn github(report: &Report) -> String {
     let mut out = String::new();
     for offense in &report.offenses {
         let title = format!("lintus: {}", offense.rule);
-        out += &command("error", &offense.message, &offense.path, &title);
+        let file = match offense.lines {
+            Some(lines) => format!("{},line={},endLine={}", escape_property(&offense.path), lines.start, lines.end),
+            None => escape_property(&offense.path),
+        };
+        out += &format!("::error file={file},title={}::{}\n", escape_property(&title), escape_data(&offense.message));
     }
     for skipped in &report.skipped {
         out += &command("notice", &format!("Skipped: {}", skipped.reason), &skipped.path, "lintus");
@@ -95,9 +100,14 @@ fn json(report: &Report) -> String {
             "skipped": report.skipped.len(),
             "failures": report.failures.len(),
         },
-        "offenses": report.offenses.iter().map(|o| json!({
-            "path": o.path, "rule": o.rule, "message": o.message, "noul": round(o.noul),
-        })).collect::<Vec<_>>(),
+        "offenses": report.offenses.iter().map(|o| {
+            let mut offense = json!({ "path": o.path, "rule": o.rule, "message": o.message, "noul": round(o.noul) });
+            if let Some(lines) = o.lines {
+                offense["line"] = json!(lines.start);
+                offense["end_line"] = json!(lines.end);
+            }
+            offense
+        }).collect::<Vec<_>>(),
         "files": report.checked.iter().map(|c| json!({
             "path": c.path,
             "answers": c.answers.iter().map(|(rule, noul)| (rule.clone(), round(*noul))).collect::<serde_json::Map<_, _>>(),
@@ -106,6 +116,11 @@ fn json(report: &Report) -> String {
         "failures": report.failures.iter().map(|f| json!({ "path": f.path, "error": f.error })).collect::<Vec<_>>(),
     });
     serde_json::to_string_pretty(&value).expect("a report always serializes") + "\n"
+}
+
+/// `12`, or `12-15` for several lines.
+fn line_range(lines: Lines) -> String {
+    if lines.start == lines.end { lines.start.to_string() } else { format!("{}-{}", lines.start, lines.end) }
 }
 
 fn summary(report: &Report) -> String {
@@ -203,12 +218,14 @@ mod tests {
                     rule: "no_sleep".into(),
                     message: "Jobs must not sleep.".into(),
                     noul: 0.912,
+                    lines: None,
                 },
                 Offense {
                     path: "app/jobs/a_job.rb".into(),
                     rule: "documented".into(),
                     message: "Classes carry a comment.".into(),
                     noul: 0.3,
+                    lines: None,
                 },
             ],
             skipped: vec![Skipped { path: "lib/blob.rb".into(), reason: "binary file".into() }],
@@ -247,10 +264,42 @@ lib/bad.rb: failed, Jev API error 500: boom
     }
 
     #[test]
+    fn located_offenses_carry_their_lines() {
+        let offense = |lines| Offense {
+            path: "a.rb".into(),
+            rule: "r".into(),
+            message: "m".into(),
+            noul: 0.9,
+            lines: Some(lines),
+        };
+        let report = Report {
+            checked: vec![Checked { path: "a.rb".into(), answers: vec![] }],
+            offenses: vec![offense(Lines { start: 3, end: 3 }), offense(Lines { start: 7, end: 9 })],
+            ..Report::default()
+        };
+
+        assert!(Format::Text.render(&report).starts_with("a.rb:3: [r] m (noul 0.9)\na.rb:7-9: [r] m (noul 0.9)\n"));
+        assert!(Format::Github.render(&report).starts_with(
+            "::error file=a.rb,line=3,endLine=3,title=lintus%3A r::m\n::error file=a.rb,line=7,endLine=9,title=lintus%3A r::m\n"
+        ));
+        let json: serde_json::Value = serde_json::from_str(&Format::Json.render(&report)).unwrap();
+        assert_eq!(
+            json["offenses"][1],
+            json!({ "path": "a.rb", "rule": "r", "message": "m", "noul": 0.9, "line": 7, "end_line": 9 })
+        );
+    }
+
+    #[test]
     fn github_escapes_newlines_and_percent_in_messages() {
         let report = Report {
             checked: vec![Checked { path: "a.rb".into(), answers: vec![] }],
-            offenses: vec![Offense { path: "a.rb".into(), rule: "r".into(), message: "100%\nsure".into(), noul: 1.0 }],
+            offenses: vec![Offense {
+                path: "a.rb".into(),
+                rule: "r".into(),
+                message: "100%\nsure".into(),
+                noul: 1.0,
+                lines: None,
+            }],
             ..Report::default()
         };
         assert_eq!(

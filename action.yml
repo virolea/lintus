@@ -20,6 +20,25 @@ inputs:
     description: Extra arguments for the lintus command, for example "--jobs 8".
     required: false
     default: ""
+  locate:
+    description: >-
+      When a changed file has offenses, find the changed lines that cause them, so annotations
+      and comments point at those lines instead of the whole file. Costs one extra request per
+      hunk of a flagged file, and per line of a blamed hunk. Only applies when diffing.
+    required: false
+    default: "true"
+  comment:
+    description: >-
+      Post each offense as a review comment on the pull request, on the lines that cause it.
+      Needs `pull-requests: write`, and checking out the pull request head
+      (`ref: ${{ github.event.pull_request.head.sha }}`) so line numbers match its diff.
+      Comments already posted for the same rule and lines are not repeated.
+    required: false
+    default: "false"
+  github-token:
+    description: Token used to post review comments.
+    required: false
+    default: ${{ github.token }}
   version:
     description: >-
       Version of lintus to install, such as 0.3.0. Defaults to the version of the action
@@ -87,7 +106,13 @@ runs:
         JEV_API_KEY: ${{ inputs.jev-api-key }}
         LINTUS_BASE: ${{ inputs.base }}
         LINTUS_ARGS: ${{ inputs.args }}
+        LINTUS_LOCATE: ${{ inputs.locate }}
+        LINTUS_COMMENT: ${{ inputs.comment }}
         PR_BASE_REF: ${{ github.base_ref }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        GH_TOKEN: ${{ inputs.github-token }}
+        REPOSITORY: ${{ github.repository }}
       run: |
         lintus --version
         base="$LINTUS_BASE"
@@ -95,9 +120,42 @@ runs:
           base="origin/$PR_BASE_REF"
         fi
 
+        report="$RUNNER_TEMP/lintus-report.json"
+        status=0
         if [ -n "$base" ] && [ "$base" != "none" ]; then
           git fetch --no-tags origin "${base#origin/}" >/dev/null 2>&1 || true
-          lintus --format github --diff "$base" $LINTUS_ARGS
+          locate=""
+          if [ "$LINTUS_LOCATE" = "true" ]; then locate="--locate"; fi
+          lintus --format github --diff "$base" $locate --json-file "$report" $LINTUS_ARGS || status=$?
         else
-          lintus --format github $LINTUS_ARGS
+          lintus --format github --json-file "$report" $LINTUS_ARGS || status=$?
         fi
+
+        if [ "$LINTUS_COMMENT" = "true" ] && [ -n "$PR_NUMBER" ] && [ -f "$report" ]; then
+          # Bodies of the comments already on the pull request, to find our markers in.
+          existing=$(gh api --paginate "repos/$REPOSITORY/pulls/$PR_NUMBER/comments" --jq '.[].body' 2>/dev/null || true)
+          jq -c '.offenses[]' "$report" | while read -r offense; do
+            path=$(jq -r .path <<< "$offense")
+            rule=$(jq -r .rule <<< "$offense")
+            message=$(jq -r .message <<< "$offense")
+            noul=$(jq -r .noul <<< "$offense")
+            start=$(jq -r '.line // empty' <<< "$offense")
+            end=$(jq -r '.end_line // empty' <<< "$offense")
+            marker="<!-- lintus:$rule:$path:${start:-file}-${end:-file} -->"
+            if grep -qF -- "$marker" <<< "$existing"; then continue; fi
+
+            body=$(printf '**lintus: `%s`**\n\n%s\n\n<sub>noul %s</sub>\n%s' "$rule" "$message" "$noul" "$marker")
+            args=(-X POST "repos/$REPOSITORY/pulls/$PR_NUMBER/comments"
+              -f body="$body" -f commit_id="$PR_HEAD_SHA" -f path="$path")
+            if [ -z "$start" ]; then
+              args+=(-f subject_type=file)
+            else
+              args+=(-F line="$end" -f side=RIGHT)
+              if [ "$start" != "$end" ]; then args+=(-F start_line="$start" -f start_side=RIGHT); fi
+            fi
+            if ! error=$(gh api "${args[@]}" 2>&1 > /dev/null); then
+              echo "::warning file=$path,title=lintus::Could not comment on the pull request: $error"
+            fi
+          done
+        fi
+        exit $status

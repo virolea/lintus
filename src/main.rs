@@ -9,6 +9,7 @@ mod files;
 mod format;
 mod git;
 mod glob;
+mod hunks;
 mod paths;
 mod progress;
 mod report;

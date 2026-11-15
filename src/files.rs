@@ -14,12 +14,25 @@ use crate::paths;
 pub struct SourceFile {
     pub path: String,
     from_index: bool,
+    /// The commit the file's changes are measured from, under `--diff` and `--staged`.
+    base: Option<String>,
 }
 
 impl SourceFile {
     #[cfg(test)]
     pub fn in_working_tree(path: &str) -> SourceFile {
-        SourceFile { path: path.to_string(), from_index: false }
+        SourceFile { path: path.to_string(), from_index: false, base: None }
+    }
+
+    /// The content at the base commit and the diff from it, when the run is
+    /// about changes and the file existed at the base. None otherwise: there
+    /// is nothing to compare against.
+    pub fn changes(&self, root: &Path) -> Option<(Vec<u8>, String)> {
+        let base = self.base.as_deref()?;
+        let git = Git::new(root.to_path_buf());
+        let content = git.content_at(base, &self.path)?;
+        let diff = git.diff_without_context(base, &self.path, self.from_index).ok()?;
+        Some((content, diff))
     }
 
     /// Reads the content afresh on every call, so a run holds only the files in flight.
@@ -45,17 +58,18 @@ impl FileFinder {
 
     /// Every file in the tree: git's view when inside a repository, else a walk.
     pub fn all(&self) -> Result<Vec<SourceFile>> {
-        Ok(self.sources(self.files_under(&self.root)?, false))
+        Ok(self.sources(self.files_under(&self.root)?, false, None))
     }
 
     pub fn changed_since(&self, reference: &str) -> Result<Vec<SourceFile>> {
         self.require_repository()?;
-        Ok(self.sources(self.git.changed_files_since(reference)?, false))
+        let files = self.git.changed_files_since(reference)?;
+        Ok(self.sources(files, false, Some(self.git.merge_base(reference))))
     }
 
     pub fn staged(&self) -> Result<Vec<SourceFile>> {
         self.require_repository()?;
-        Ok(self.sources(self.git.staged_files()?, true))
+        Ok(self.sources(self.git.staged_files()?, true, Some("HEAD".into())))
     }
 
     /// Paths given on the command line, resolved against `from`.
@@ -64,7 +78,7 @@ impl FileFinder {
         for path in paths {
             files.extend(self.files_under(&paths::normalize(&from.join(path)))?);
         }
-        Ok(self.sources(files, false))
+        Ok(self.sources(files, false, None))
     }
 
     fn require_repository(&self) -> Result<()> {
@@ -100,13 +114,13 @@ impl FileFinder {
 
     /// Sorted and deduplicated, keeping only files that exist in the working
     /// tree unless they are read from the index.
-    fn sources(&self, mut paths: Vec<String>, from_index: bool) -> Vec<SourceFile> {
+    fn sources(&self, mut paths: Vec<String>, from_index: bool, base: Option<String>) -> Vec<SourceFile> {
         paths.sort();
         paths.dedup();
         paths
             .into_iter()
             .filter(|path| from_index || self.root.join(path).is_file())
-            .map(|path| SourceFile { path, from_index })
+            .map(|path| SourceFile { path, from_index, base: base.clone() })
             .collect()
     }
 }

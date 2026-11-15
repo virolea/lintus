@@ -26,4 +26,4 @@ jobs:
         if: env.JEV_API_KEY != ''
         env:
           BASE_REF: ${{ github.base_ref }}
-        run: cargo run --release --locked -- --format github --diff "origin/$BASE_REF"
+        run: cargo run --release --locked -- --format github --diff "origin/$BASE_REF" --locate

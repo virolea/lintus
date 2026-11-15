@@ -61,6 +61,15 @@ struct Args {
     #[arg(short, long, conflicts_with = "diff", help_heading = "Which files")]
     staged: bool,
 
+    /// For offenses under --diff or --staged, find the changed lines that cause
+    /// them (one extra request per hunk, and per line of a blamed hunk)
+    #[arg(long, help_heading = "How to run")]
+    locate: bool,
+
+    /// Also write the report as JSON to PATH, whatever the --format
+    #[arg(long, value_name = "PATH", help_heading = "How to run")]
+    json_file: Option<PathBuf>,
+
     /// Config file [default: the nearest .lintus.yml from the current directory up]
     #[arg(short, long, value_name = "PATH", help_heading = "How to run")]
     config: Option<PathBuf>,
@@ -160,6 +169,9 @@ fn lint(args: &Args) -> Result<i32> {
     if !args.files.is_empty() && (args.diff.is_some() || args.staged) {
         return Err(Error::new("FILE arguments cannot be combined with --diff or --staged"));
     }
+    if args.locate && args.diff.is_none() && !args.staged {
+        return Err(Error::new("--locate needs --diff or --staged: it finds offenses among the changed lines"));
+    }
     let cwd = current_dir()?;
     let format = match &args.format {
         Some(name) => Format::from_name(name).expect("clap only accepts known formats"),
@@ -207,8 +219,14 @@ fn lint(args: &Args) -> Result<i32> {
     let tty = stderr.is_terminal();
     let progress = Mutex::new(Progress::new(stderr, tasks.len(), tty));
     progress.lock().unwrap().start();
-    let report = Runner::new(&config, client, args.jobs).run(&tasks, |done| progress.lock().unwrap().update(done));
+    let runner = Runner::new(&config, client, args.jobs).with_locate(args.locate);
+    let report = runner.run(&tasks, |done| progress.lock().unwrap().update(done));
     progress.lock().unwrap().finish();
+
+    if let Some(path) = &args.json_file {
+        std::fs::write(cwd.join(path), Format::Json.render(&report))
+            .map_err(|e| Error::new(format!("could not write {}: {e}", path.display())))?;
+    }
 
     print(&format.render(&report));
     Ok(report.exit_status())

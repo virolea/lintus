@@ -1,5 +1,13 @@
 ## [Unreleased]
 
+- `--locate` pins each offense of a `--diff` or `--staged` run to the changed lines that cause
+  it, by asking the rule about the base version with one hunk, then one line, applied at a
+  time. The text format prints `path:line:`, the github format adds `line` and `endLine` to
+  annotations, and the JSON format adds `line` and `end_line` to located offenses.
+- `--json-file PATH` writes the JSON report to a file as well as printing the chosen format.
+- The GitHub Action locates offenses by default (`locate: false` turns it off), and can post
+  them as pull request review comments with `comment: true`.
+
 - Lintus is now a single binary, rewritten in Rust: no Ruby needed. Install it with the
   script or the archives on the GitHub releases, or `cargo install lintus`. Config files,
   flags, output formats and exit statuses are unchanged, checked by a conformance suite that
