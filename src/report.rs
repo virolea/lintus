@@ -1,5 +1,7 @@
 //! Everything a run produced: what was checked, what was flagged, what was skipped, what broke.
 
+pub use crate::hunks::Lines;
+
 /// A file the model answered about, with the probability each rule got,
 /// offense or not, so a run can be read for confidence and not just verdicts.
 #[derive(Debug, Clone, PartialEq)]
@@ -8,13 +10,15 @@ pub struct Checked {
     pub answers: Vec<(String, f64)>,
 }
 
-/// A rule the model flagged on a file, with the probability it gave.
+/// A rule the model flagged on a file, with the probability it gave, and the
+/// changed lines that cause it when `--locate` found them.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Offense {
     pub path: String,
     pub rule: String,
     pub message: String,
     pub noul: f64,
+    pub lines: Option<Lines>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -39,10 +43,10 @@ pub struct Report {
 
 impl Report {
     /// Puts every list in a stable order, whatever order the files finished in:
-    /// by path, and offenses by path then rule.
+    /// by path, and offenses by path, rule, then line.
     pub fn sort(&mut self) {
         self.checked.sort_by(|a, b| a.path.cmp(&b.path));
-        self.offenses.sort_by(|a, b| (&a.path, &a.rule).cmp(&(&b.path, &b.rule)));
+        self.offenses.sort_by(|a, b| (&a.path, &a.rule, a.lines).cmp(&(&b.path, &b.rule, b.lines)));
         self.skipped.sort_by(|a, b| a.path.cmp(&b.path));
         self.failures.sort_by(|a, b| a.path.cmp(&b.path));
     }
@@ -64,7 +68,7 @@ mod tests {
     use super::*;
 
     fn offense(path: &str, rule: &str) -> Offense {
-        Offense { path: path.into(), rule: rule.into(), message: String::new(), noul: 0.9 }
+        Offense { path: path.into(), rule: rule.into(), message: String::new(), noul: 0.9, lines: None }
     }
 
     #[test]

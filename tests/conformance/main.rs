@@ -8,6 +8,7 @@ mod support;
 mod cli;
 mod config;
 mod files;
+mod locate;
 mod output;
 mod runner;
 

@@ -1,5 +1,7 @@
 //! Sends each file to Jev once, with every rule that applies to it as a
-//! separate noul question, and turns the answers into offenses.
+//! separate noul question, and turns the answers into offenses. With
+//! `locate`, then asks the rules a file broke about versions of it holding
+//! only part of its changes, to find the lines that cause each offense.
 
 use std::hash::{BuildHasher, Hasher};
 use std::sync::Mutex;
@@ -8,6 +10,7 @@ use std::time::Duration;
 
 use crate::config::{Config, Rule};
 use crate::files::SourceFile;
+use crate::hunks::{self, Lines};
 use crate::report::{Checked, Failure, Offense, Report, Skipped};
 
 /// A file and the rules that apply to it.
@@ -32,6 +35,7 @@ pub struct Runner<'c> {
     client: jev::Client,
     jobs: usize,
     retries: u32,
+    locate: bool,
     sleep: Box<dyn Fn(Duration) + Sync + 'c>,
 }
 
@@ -43,6 +47,10 @@ enum Outcome {
 
 impl<'c> Runner<'c> {
     pub const RETRIES: u32 = 3;
+    /// Files with more hunks than this are not located: one request per hunk adds up.
+    pub const MAX_HUNKS: usize = 50;
+    /// Hunks with more added lines than this are located as a whole, not line by line.
+    pub const MAX_LINES: usize = 20;
 
     /// `jobs` is how many requests may be in flight at once; anything below 1 means 1.
     pub fn new(config: &'c Config, client: jev::Client, jobs: i64) -> Runner<'c> {
@@ -51,8 +59,16 @@ impl<'c> Runner<'c> {
             client,
             jobs: jobs.clamp(1, 1024) as usize,
             retries: Self::RETRIES,
+            locate: false,
             sleep: Box::new(std::thread::sleep),
         }
+    }
+
+    /// Whether to find the changed lines behind each offense. Only files with
+    /// a base to compare against (under `--diff` and `--staged`) are located.
+    pub fn with_locate(mut self, locate: bool) -> Runner<'c> {
+        self.locate = locate;
+        self
     }
 
     #[cfg(test)]
@@ -119,35 +135,124 @@ impl<'c> Runner<'c> {
             ));
         }
 
-        let mut query = jev::Query::new(format!("File: {path}\n\n{content}"));
-        for rule in &task.rules {
-            if let Err(error) = query.ask(&rule.id, rule.to_noul()) {
-                return failed(error.to_string());
-            }
-        }
-        let response = match self.retrying(|| self.client.perform(&query)) {
-            Ok(response) => response,
-            Err(error) => return failed(error.to_string()),
+        let answers = match self.ask(path, &content, &task.rules) {
+            Ok(answers) => answers,
+            Err(error) => return failed(error),
         };
 
-        let mut answers = Vec::new();
         let mut offenses = Vec::new();
-        for rule in &task.rules {
-            let answer = match response.noul(&rule.id) {
-                Ok(answer) => answer,
-                Err(error) => return failed(error.to_string()),
-            };
-            answers.push((rule.id.clone(), answer.noul));
+        for (rule, answer) in task.rules.iter().zip(&answers) {
             if rule.is_offense(answer) {
                 offenses.push(Offense {
                     path: path.clone(),
                     rule: rule.id.clone(),
                     message: rule.description.clone(),
                     noul: answer.noul,
+                    lines: None,
                 });
             }
         }
+        if self.locate && !offenses.is_empty() {
+            offenses = self.locate(task, offenses);
+        }
+        let answers = task.rules.iter().zip(&answers).map(|(rule, answer)| (rule.id.clone(), answer.noul)).collect();
         Outcome::Checked(Checked { path: path.clone(), answers }, offenses)
+    }
+
+    /// Asks every rule about a version of the file, answers in rule order.
+    fn ask(&self, path: &str, content: &str, rules: &[&Rule]) -> Result<Vec<jev::NoulAnswer>, String> {
+        let mut query = jev::Query::new(format!("File: {path}\n\n{content}"));
+        for rule in rules {
+            query.ask(&rule.id, rule.to_noul()).map_err(|error| error.to_string())?;
+        }
+        let response = self.retrying(|| self.client.perform(&query)).map_err(|error| error.to_string())?;
+        rules.iter().map(|rule| response.noul(&rule.id).cloned().map_err(|error| error.to_string())).collect()
+    }
+
+    /// Which of the rules a version of the file breaks, in rule order.
+    fn breaks(&self, path: &str, content: &str, rules: &[&Rule]) -> Option<Vec<bool>> {
+        let answers = self.ask(path, content, rules).ok()?;
+        Some(rules.iter().zip(&answers).map(|(rule, answer)| rule.is_offense(answer)).collect())
+    }
+
+    /// Pins each offense to the changed lines that cause it. A rule the base
+    /// already broke is left on the whole file, since the change did not
+    /// introduce it. Otherwise each hunk is applied alone to the base, and the
+    /// hunks that make the rule fire on their own are blamed; within one of
+    /// those, so are the added lines that do it alone, or else the whole hunk.
+    /// An offense only a combination of hunks causes stays on the whole file,
+    /// and so does every offense when a request fails: locating is best effort.
+    fn locate(&self, task: &Task, offenses: Vec<Offense>) -> Vec<Offense> {
+        let path = &task.file.path;
+        let Some((base, diff)) = task.file.changes(&self.config.root) else { return offenses };
+        let Ok(base) = String::from_utf8(base) else { return offenses };
+        let hunks = hunks::parse(&diff);
+        if hunks.is_empty() || hunks.len() > Self::MAX_HUNKS {
+            return offenses;
+        }
+        let base_lines: Vec<&str> = base.split_inclusive('\n').collect();
+        let rules: Vec<&Rule> = offenses
+            .iter()
+            .filter_map(|offense| task.rules.iter().copied().find(|rule| rule.id == offense.rule))
+            .collect();
+        if rules.len() != offenses.len() {
+            return offenses;
+        }
+
+        let Some(on_base) = self.breaks(path, &base, &rules) else { return offenses };
+        let introduced: Vec<usize> = (0..rules.len()).filter(|&i| !on_base[i]).collect();
+        let mut found: Vec<Vec<Lines>> = vec![Vec::new(); rules.len()];
+
+        for hunk in &hunks {
+            // With a single hunk, it is what turned the base into an offense.
+            let blamed = if hunks.len() == 1 {
+                introduced.clone()
+            } else {
+                match self.blame(path, &hunk.apply(&base_lines, |_| true), &rules, &introduced) {
+                    Some(blamed) => blamed,
+                    None => return offenses,
+                }
+            };
+            if blamed.is_empty() {
+                continue;
+            }
+
+            let mut by_line: Vec<Vec<Lines>> = vec![Vec::new(); rules.len()];
+            if (2..=Self::MAX_LINES).contains(&hunk.added.len()) {
+                for index in 0..hunk.added.len() {
+                    let version = hunk.apply(&base_lines, |kept| kept == index);
+                    match self.blame(path, &version, &rules, &blamed) {
+                        Some(lines) => lines.into_iter().for_each(|i| by_line[i].push(hunk.line(index))),
+                        None => return offenses,
+                    }
+                }
+            }
+            for i in blamed {
+                if by_line[i].is_empty() {
+                    found[i].push(hunk.lines());
+                } else {
+                    found[i].append(&mut by_line[i]);
+                }
+            }
+        }
+
+        offenses
+            .into_iter()
+            .zip(found)
+            .flat_map(|(offense, found)| {
+                if found.is_empty() {
+                    return vec![offense];
+                }
+                hunks::merge(found).into_iter().map(|lines| Offense { lines: Some(lines), ..offense.clone() }).collect()
+            })
+            .collect()
+    }
+
+    /// Which of the `candidates` (indexes into `rules`) a version of the file breaks.
+    fn blame(&self, path: &str, content: &str, rules: &[&Rule], candidates: &[usize]) -> Option<Vec<usize>> {
+        let asked: Vec<&Rule> = candidates.iter().map(|&i| rules[i]).collect();
+        let broken = self.breaks(path, content, &asked)?;
+        Some(candidates.iter().zip(broken).filter(|(_, broken)| *broken).map(|(&i, _)| i).collect())
     }
 
     /// Retries rate-limited and overloaded requests with exponential backoff.

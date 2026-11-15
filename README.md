@@ -174,6 +174,31 @@ the file name ("Is this a controller?") as well as the code.
 
 Only files that at least one rule applies to are sent. Deleted files are never sent.
 
+## Finding the lines
+
+A rule is a question about a whole file, so an offense names a file, not a line. On a large
+file that leaves you hunting. With `--diff` or `--staged`, add `--locate` and lintus finds the
+changed lines that cause each offense:
+
+```
+$ lintus --diff main --locate
+app/jobs/sync_job.rb:42-44: [no_sleep] Jobs must not sleep. (noul 0.93)
+```
+
+It asks the rule again about versions of the file that hold only part of the change. First
+the base version: if it already breaks the rule, the change did not introduce the offense and
+it stays on the whole file. Then the base plus one hunk at a time (a hunk being one run of
+changed lines), and each hunk that is enough on its own to break the rule is blamed. Then,
+within a blamed hunk, the base plus one of its added lines at a time, and those lines are
+blamed; when no single line is enough, the whole hunk is. An offense that only a combination
+of hunks causes stays on the whole file, and so does every offense of a file when one of these
+requests fails.
+
+Only the rules a file broke are asked again, and each version is a single request, so a
+flagged file costs 1 request for the base, 1 per hunk (none when there is only one), and 1 per
+added line of each blamed hunk. Files with more than 50 hunks are not located, and hunks of
+more than 20 added lines are blamed as a whole. Clean files cost nothing extra.
+
 ## Output
 
 `--format text` is the default. `--format github` prints GitHub Actions workflow commands, so
@@ -181,6 +206,8 @@ each offense becomes an annotation on the file in the pull request; it is the de
 `GITHUB_ACTIONS` is set. `--format json` is for other tools, and it also lists the probability
 every rule gave every file under `files`, offense or not, which is what you want when tuning
 a rule's wording or threshold.
+
+`--json-file PATH` also writes the JSON report to `PATH`, whatever `--format` prints.
 
 Exit status is `0` when clean, `1` when there are offenses, and `2` when a request failed or
 the invocation was wrong.
@@ -211,10 +238,37 @@ jobs:
 ```
 
 On pull requests the action lints only the files changed against the base branch, and
-annotates them. Set `base: none` to lint everything, or `base: origin/develop` to diff
+annotates the lines that cause each offense (see [Finding the lines](#finding-the-lines); set
+`locate: false` to annotate whole files, at one request per file). Set `base: none` to lint everything, or `base: origin/develop` to diff
 against another ref. Extra flags go in `args`. The action downloads the lintus binary for
 the runner (the release matching the action's tag, or `version` if set), so the job needs
 neither Ruby nor Rust.
+
+Annotations are easy to miss, and GitHub shows at most ten per step. With `comment: true`,
+each offense is also posted as a review comment on the lines that cause it:
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  lintus:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}   # line numbers must match the PR diff
+      - uses: virolea/lintus@v0.3.0
+        with:
+          jev-api-key: ${{ secrets.JEV_API_KEY }}
+          comment: true
+```
+
+A comment already posted for the same rule and lines is not posted again when the job reruns.
+Pull requests from forks get a read-only token, so there the comments are skipped with a
+warning and the annotations remain.
 
 ## Pre-commit hook
 
@@ -263,6 +317,8 @@ of the shell running the commit.
 -j, --jobs N           Concurrent requests to the Jev API (default 4)
     --api-key KEY      Jev API key (default: $JEV_API_KEY, then the saved key)
 -l, --list             Show what would be checked without calling the API
+    --locate           Find the changed lines behind each offense (with --diff or --staged)
+    --json-file PATH   Also write the JSON report to PATH
 ```
 
 `JEV_API_URL` sends requests to another endpoint than the public API, such as a proxy.

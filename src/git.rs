@@ -36,13 +36,35 @@ impl Git {
     /// `reference` and HEAD, plus untracked files. With `reference` at HEAD
     /// this is "what I have not committed yet".
     pub fn changed_files_since(&self, reference: &str) -> Result<Vec<String>> {
-        let base = self
-            .run(&["merge-base", reference, "HEAD"])
-            .map(|out| out.trim_end().to_string())
-            .unwrap_or_else(|_| reference.to_string());
+        let base = self.merge_base(reference);
         let mut files = self.lines(&["diff", "-z", "--name-only", CHANGE_FILTER, &base])?;
         files.extend(self.lines(&["ls-files", "-z", "--others", "--exclude-standard"])?);
         Ok(files)
+    }
+
+    /// The commit `--diff REF` compares against: the merge base of `reference`
+    /// and HEAD, or `reference` itself when there is none.
+    pub fn merge_base(&self, reference: &str) -> String {
+        self.run(&["merge-base", reference, "HEAD"])
+            .map(|out| out.trim_end().to_string())
+            .unwrap_or_else(|_| reference.to_string())
+    }
+
+    /// The content of a file at a commit, or None when it does not exist there.
+    pub fn content_at(&self, commit: &str, path: &str) -> Option<Vec<u8>> {
+        self.run_bytes(&["show", &format!("{commit}:{path}")]).ok()
+    }
+
+    /// The diff of one file without context lines, so every hunk is a single
+    /// run of changed lines: from `commit` to the working tree, or to the index
+    /// when `cached`.
+    pub fn diff_without_context(&self, commit: &str, path: &str, cached: bool) -> Result<String> {
+        let mut args = vec!["diff", "-U0", "--no-color", "--no-ext-diff", "--no-renames"];
+        if cached {
+            args.push("--cached");
+        }
+        args.extend_from_slice(&[commit, "--", path]);
+        self.run(&args)
     }
 
     /// The content of a file as staged in the index.
