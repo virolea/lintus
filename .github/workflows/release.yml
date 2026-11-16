@@ -144,7 +144,8 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
         run: |
           version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "jev-api") | .version')
-          if curl -sf "https://crates.io/api/v1/crates/jev-api/$version" > /dev/null; then
+          # crates.io answers 403 to requests without a User-Agent.
+          if curl -sf -A "lintus-release (github.com/virolea/lintus)" "https://crates.io/api/v1/crates/jev-api/$version" > /dev/null; then
             echo "jev-api $version is already on crates.io"
           else
             cargo publish --locked -p jev-api
