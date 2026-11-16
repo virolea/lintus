@@ -1,6 +1,6 @@
 [package]
 name = "lintus"
-version = "0.4.0"
+version = "0.4.1"
 description = "A linter whose rules are plain-language questions, answered by the Jev model."
 readme = "README.md"
 keywords = ["linter", "llm", "code-review", "ci"]
