@@ -1,5 +1,7 @@
-# Lintus linting itself, built from this checkout. It also checks, on every pull
-# request, that a real call to the Jev API works. Skipped on forks without the secret.
+# Lintus linting itself, built from this checkout and run through the action in this
+# checkout, so a pull request exercises both. Offenses are located on the changed lines and
+# posted as review comments. It also checks, on every pull request, that a real call to the
+# Jev API works. Skipped on forks without the secret.
 name: Lintus
 
 on:
@@ -7,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   lintus:
@@ -18,12 +21,21 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}   # line numbers must match the PR diff
       - uses: dtolnay/rust-toolchain@stable
         if: env.JEV_API_KEY != ''
       - uses: Swatinem/rust-cache@v2
         if: env.JEV_API_KEY != ''
-      - name: Run lintus from this checkout
+      - name: Build lintus from this checkout
         if: env.JEV_API_KEY != ''
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: cargo run --release --locked -- --format github --diff "origin/$BASE_REF" --locate
+        run: |
+          cargo build --release --locked
+          echo "$GITHUB_WORKSPACE/target/release" >> "$GITHUB_PATH"
+      - name: Run lintus
+        if: env.JEV_API_KEY != ''
+        uses: ./
+        with:
+          jev-api-key: ${{ secrets.JEV_API_KEY }}
+          version: installed
+          locate: true
+          comment: true

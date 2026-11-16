@@ -43,7 +43,8 @@ inputs:
     description: >-
       Version of lintus to install, such as 0.3.0. Defaults to the version of the action
       itself when it is used at a version tag (virolea/lintus@v0.3.0), and to the latest
-      release otherwise.
+      release otherwise. Pass "installed" to use the lintus already on the PATH, for example
+      one built from source in an earlier step.
     required: false
     default: ""
   ruby-version:
@@ -61,6 +62,13 @@ runs:
         ACTION_REF: ${{ github.action_ref }}
       run: |
         version="$LINTUS_VERSION"
+        if [ "$version" = "installed" ]; then
+          if ! command -v lintus > /dev/null; then
+            echo "::error title=lintus::version is \"installed\" but there is no lintus on the PATH"
+            exit 1
+          fi
+          exit 0
+        fi
         if [ -z "$version" ]; then
           case "$ACTION_REF" in
             v[0-9]*) version="$ACTION_REF" ;;

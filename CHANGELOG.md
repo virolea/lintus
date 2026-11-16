@@ -1,5 +1,8 @@
 ## [Unreleased]
 
+- The GitHub Action's `version` input accepts `installed`, to run a lintus already on the
+  PATH instead of downloading a release.
+
 ## [0.4.0] - 2026-11-15
 
 - `--locate` pins each offense of a `--diff` or `--staged` run to the changed lines that cause
