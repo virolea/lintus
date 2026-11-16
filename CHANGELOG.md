@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- Fix the GitHub Action failing to load: the description of its `comment` input held a
+  `${{ }}` expression, which GitHub evaluates even there.
 - The GitHub Action's `version` input accepts `installed`, to run a lintus already on the
   PATH instead of downloading a release.
 
