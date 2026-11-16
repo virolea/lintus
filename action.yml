@@ -31,7 +31,7 @@ inputs:
     description: >-
       Post each offense as a review comment on the pull request, on the lines that cause it.
       Needs `pull-requests: write`, and checking out the pull request head
-      (set `ref` on actions/checkout to the pull request head sha) so line numbers match its diff.
+      (`ref` set to the pull request head SHA) so line numbers match its diff.
       Comments already posted for the same rule and lines are not repeated.
     required: false
     default: "false"
