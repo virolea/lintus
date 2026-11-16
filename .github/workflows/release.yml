@@ -139,17 +139,20 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: rust-lang/crates-io-auth-action@v1
         id: auth
-      - name: Publish jev-api, unless this version is already out
+      # crates.io answers 403 to requests without a User-Agent, which used to read as
+      # "not published yet" and made every release re-publish jev-api and fail.
+      - name: Publish each crate whose version is not on crates.io yet
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
         run: |
-          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "jev-api") | .version')
-          if curl -sf "https://crates.io/api/v1/crates/jev-api/$version" > /dev/null; then
-            echo "jev-api $version is already on crates.io"
-          else
-            cargo publish --locked -p jev-api
-          fi
-      - name: Publish lintus
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
-        run: cargo publish --locked -p lintus
+          for crate in jev-api lintus; do
+            version=$(cargo metadata --no-deps --format-version 1 | jq -r --arg crate "$crate" '.packages[] | select(.name == $crate) | .version')
+            status=$(curl -s -o /dev/null -w '%{http_code}' \
+              -A "lintus-release (https://github.com/virolea/lintus)" \
+              "https://crates.io/api/v1/crates/$crate/$version")
+            case "$status" in
+              200) echo "$crate $version is already on crates.io" ;;
+              404) cargo publish --locked -p "$crate" ;;
+              *) echo "::error::crates.io answered $status for $crate $version"; exit 1 ;;
+            esac
+          done
