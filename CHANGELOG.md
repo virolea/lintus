@@ -1,5 +1,10 @@
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-16
+
+- Fix the GitHub Action failing to load: the `comment` input's description held a `${{ }}`
+  expression, which GitHub evaluates and rejects in action metadata.
+
 ## [0.4.0] - 2026-11-15
 
 - `--locate` pins each offense of a `--diff` or `--staged` run to the changed lines that cause

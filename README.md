@@ -232,7 +232,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0   # needed to diff against the base branch
-      - uses: virolea/lintus@v0.4.0
+      - uses: virolea/lintus@v0.4.1
         with:
           jev-api-key: ${{ secrets.JEV_API_KEY }}
 ```
@@ -260,7 +260,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}   # line numbers must match the PR diff
-      - uses: virolea/lintus@v0.4.0
+      - uses: virolea/lintus@v0.4.1
         with:
           jev-api-key: ${{ secrets.JEV_API_KEY }}
           comment: true
@@ -277,7 +277,7 @@ With [pre-commit](https://pre-commit.com):
 ```yaml
 repos:
   - repo: https://github.com/virolea/lintus
-    rev: v0.4.0
+    rev: v0.4.1
     hooks:
       - id: lintus
 ```
